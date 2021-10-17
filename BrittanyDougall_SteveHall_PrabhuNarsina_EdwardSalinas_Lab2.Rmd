@@ -1,0 +1,549 @@
+---
+title: 'Statistical Methods for Discrete Response, Time Series, and Panel Data (W271): Lab 2'
+subtitle: 'Brittany Dougall, Steve Hall, Prabhu Narsina, and Edward Salinas'
+geometry: margin=1in
+output:
+  pdf_document:
+    latex_engine: xelatex
+  number_sections: yes
+  html_document: default
+  toc: yes
+fontsize: 11pt
+---
+
+## Instructions (Please Read Carefully):
+
+* Submit by the due date. **Late submissions will not be accepted**
+
+* No page limit, but be reasonable
+
+* Do not modify fontsize, margin or line-spacing settings
+
+* One student from each group should submit the lab to their student github repo by the deadline
+
+* Submit two files:
+    
+    1. A pdf file that details your answers. Include all R code used to produce the answers
+    
+    2. The R markdown (Rmd) file used to produce the pdf file
+  
+    The assignment will not be graded unless **both** files are submitted
+      
+* Name your files to include all group members names. For example, if the students' names are Stan Cartman and Kenny Kyle, name your files as follows:
+
+    * `StanCartman_KennyKyle_Lab2.Rmd`
+    * `StanCartman_KennyKyle_Lab2.pdf`
+            
+* Although it sounds obvious, please write your name on page 1 of your pdf and Rmd files
+
+* All answers should include a detailed narrative; make sure that your audience can easily follow the logic of your analysis. All steps used in modelling must be clearly shown and explained; do not simply 'output dump' the results of code without explanation 
+
+* If you use libraries and functions for statistical modeling that we have not covered in this course, you must provide an explanation of why such libraries and functions are used and reference the library documentation
+
+* For mathematical formulae, type them in your R markdown file. Do not e.g. write them on a piece of paper, snap a photo, and use the image file
+
+* Incorrectly following submission instructions results in deduction of grades
+
+* Students are expected to act with regard to UC Berkeley Academic Integrity.
+
+\newpage
+
+# The Keeling Curve
+
+In the 1950s, the geochemist Charles David Keeling observed a seasonal pattern in the amount of carbon dioxide present in air samples collected over the course of several years. He attributed this pattern to varying rates of photosynthesis throughout the year, caused by differences in land area and vegetation cover between the Earth's northern and southern hemispheres.
+
+In 1958 Keeling began continuous monitoring of atmospheric carbon dioxide concentrations from the Mauna Loa Observatory in Hawaii. He soon observed a trend increase carbon dioxide levels in addition to the seasonal cycle, attributable to growth in global rates of fossil fuel combustion. Measurement of this trend at Mauna Loa has continued to the present.
+
+The `co2` data set in R's `datasets` package (automatically loaded with base R) is a monthly time series of atmospheric carbon dioxide concentrations measured in ppm (parts per million) at the Mauna Loa Observatory from 1959 to 1997. The curve graphed by this data is known as the 'Keeling Curve'.
+
+```{r global_options, include=FALSE, echo=FALSE}
+#knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+#                      echo=FALSE, warning=FALSE, message=FALSE)
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=FALSE)
+
+# Load required libraries
+library(car)
+library(dplyr)
+library(Hmisc)
+library(ggplot2)
+library(ggfortify)
+library(plotly)
+library(astsa)
+library(fable)
+library(fpp3)
+library(gridExtra)
+library(grid)
+library(forecast)
+library(zoo)
+```
+
+
+
+\newpage
+
+**Part 1 (3 points)**
+
+Conduct a comprehensive Exploratory Data Analysis on the `co2` series. This should include (without being limited to) a thorough investigation of the trend, seasonal and irregular elements. 
+
+```{r fig.height=10}
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=FALSE)
+
+str(co2)
+summary(CO2)
+
+co2.decompose = decompose(co2)
+co2.diff = diff(co2,differences = 1)
+co2.seasdiff = diff(co2,lag = 12)
+co2.bothdiff = diff(co2.diff,lag = 12)
+
+co2.deseasoned = co2 - co2.decompose$seasonal
+co2.detrended = co2 - co2.decompose$trend
+
+par(mfrow = c(3, 1))
+
+plot(co2, ylab = expression("CO2 ppm"), col = 'blue', las = 1)
+title(main = "Figure1: Monthly Mean CO2 Variation")
+
+boxplot(co2 ~ cycle(co2), main="co2 (ppm)")
+
+plot(co2.deseasoned, 
+    main = expression("Figure2: Presence of CO2 in air  after removing Season"), 
+    xlab = "year", ylab = expression("CO2 ppm"))
+
+plot(co2.detrended, 
+     main = expression("Figure3: Presence of CO2 in air after removing trend"), 
+     xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
+
+abline(h= 0)
+
+plot(co2.diff, 
+main = expression("Figure4: Presence of CO2 in air after differencing(2nd Order)"), 
+xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
+
+abline(h= 0)
+
+plot(co2.seasdiff, 
+main = expression("Figure5: Presence of CO2 in air after seasonal differencing "), 
+xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
+abline(h= 0)
+
+plot(co2.bothdiff, 
+  main = expression("Figure6: Presence of CO2 in air 
+                  after differencing both 2 lags and seasonal diference"), 
+         xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
+abline(h= 0)
+
+```
+  
+  Data provided has CO2 presence in the air (Parts per million) in monthly time series format from 1959 to 1998.  
+From Figure1: The time series plot of the mean of co2 presence in the air indicates a clear trend and seasonal effect. We also observe that the variance is constant over time, which suggests no need for transformation.  
+From Figure2: We see a clear upward trend in the mean of the presence of Co2 in the air   
+From Figure3:  Co2 presence in the air after removing the trend component from the time series indicates the persistent yearly seasonal effect.  
+From Figure4: Trend is abstracted after taking the 2-period difference of the time series. It suggests we use ARIMA with integration/difference of 2   
+From Figure5: Seasonality absent after applying difference of 12 lags for the season. We still see trends present.  
+From Figure6: Seasonality and trend are absent after difference at two lags and  12 lags for the season. It is much closer to white noise series with non-constant variance. It suggests a possible need of Seasonal adjustment for the ARIMA model
+
+```{r fig.height= 6.5}
+
+autoplot(co2.decompose, main = "Decomposition of C02 Time Series")
+
+plot.acf.alldata = acf(co2, plot=FALSE)
+plot.pacf.alldata = pacf(co2, plot=FALSE)
+
+plot.acf.deseasoned = acf(co2.deseasoned, plot=FALSE)
+plot.pacf.deseasoned = pacf(co2.deseasoned, plot=FALSE)
+
+plot.acf.detrended = acf(window(co2.detrended, start =c(1960), 
+                                end = c(1996)), plot=FALSE)
+plot.pacf.detrended = pacf(window(co2.detrended, start =c(1960), 
+                                  end = c(1996)), plot=FALSE)
+
+plot.acf.residual = acf(window(co2.decompose$random, start =c(1960), 
+                               end = c(1996)), plot=FALSE)
+plot.pacf.residual = pacf(window(co2.decompose$random, start =c(1960), 
+                                 end = c(1996)), plot=FALSE)
+
+plot.acf.diff = acf(co2.diff, plot=FALSE)
+plot.pacf.diff = pacf(co2.diff,  plot=FALSE)
+
+plot.acf.seasondiff = acf(co2.seasdiff, plot=FALSE)
+plot.pacf.seasondiff = pacf(co2.seasdiff,  plot=FALSE)
+
+plot.acf.bothdiff = acf(co2.bothdiff, plot=FALSE)
+plot.pacf.bothdiff = pacf(co2.bothdiff,  plot=FALSE)
+
+par(mfrow = c(2, 2))
+plot(plot.acf.alldata, main = "ACF - CO2 Presence in air \n 1959 - 1997", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue", cex.main=0.5)
+plot(plot.pacf.alldata, main = "PACF - CO2 Presence in air \n 1959 - 1997", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+plot(plot.acf.deseasoned, 
+     main = "ACF - CO2 Presence in air- \n deseasoned (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.deseasoned, 
+     main = "PACF CO2 Presence in air- \n deseasoned (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+plot(plot.acf.detrended, 
+     main = "ACF CO2 Presence in air \n detrended (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.detrended, 
+     main = "PACF CO2 Presence in air \n detrended 1959 - 1997", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+plot(plot.acf.residual, 
+     main = "ACF CO2 Presence in air \n random component (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.residual, 
+     main = "PACF CO2 Presence in air \n random component (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+plot(plot.acf.diff, main = "ACF CO2 Presence in air \n 
+using AR differencing (2nd Order)(1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.diff, main = "PACF CO2 Presence in air \n 
+using AR differencing (2nd Order)(1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+plot(plot.acf.seasondiff, main = "ACF CO2 Presence in air \n 
+using season difference (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.seasondiff, main = "PACF CO2 Presence in air \n 
+using season difference (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+plot(plot.acf.bothdiff, main = "ACF CO2 Presence in air \n 
+using both AR and seasonal differences", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n 
+using both AR and seasonal differences", 
+     xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
+
+
+```
+  
+  Decomposition graph confirms the findings from EDA, trend and seasonality are present int he time series.  
+  Above ACF and PACF graph shows for different adjustments of time series: 1) original series 2) deseasoned 3)detrended 4) random component of time series 5) Two period differenced for trend 5) Two period difference and seasonal differenced time series. Few observations from above graphs  
+  * PACF graph shows autocorrelation dying off at second log after deseasoned. This suggests to use only 1st order Auto regressive model. This also suggests removing seasonality is important  
+  * ACF graph shows clear seasonal effect after removing trend  
+  * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. This confirms the need for seasonal and Integrated treatment for our model
+
+
+```{r fig.height= 4.5}
+
+par(mfrow = c(1, 2))
+hist(co2, main = "Histogram: CO2 Presence in air \n 1959 - 1997")
+hist(co2.bothdiff, 
+main = "Histogram: CO2 Presence in air\n after AR and seasonal difference")
+
+
+
+```
+Histogram after applying seasonal and regressive difference looks close to guassian distribution. 
+
+**Part 2 (3 points)**
+
+Fit a linear time trend model to the `co2` series, and examine the characteristics of the residuals. Compare this to a higher-order polynomial time trend model. Discuss whether a logarithmic transformation of the data would be appropriate. Fit a polynomial time trend model that incorporates seasonal dummy variables, and use this model to generate forecasts up to the present. 
+
+```{r fig.height=10}
+
+par(mfrow = c(2, 1))
+plot(window(round(co2.decompose$random,digits =2), start=c(1960), end=c(1966)))
+plot(window(round(co2.decompose$random,digits =2), start=c(1990), end=c(1996)))
+
+
+par(mfrow = c(3, 1))
+co2.ts.lm.linear = lm(co2 ~ time(co2) )
+summary(co2.ts.lm.linear)
+qqPlot(co2.ts.lm.linear$residuals, 
+       main = expression("Linear Model co2 ~ time(co2) "))
+plt.acf = acf(co2.ts.lm.linear$residuals, plot = FALSE)
+plt.pacf = pacf(co2.ts.lm.linear$residuals, plot = FALSE)
+plot(plt.acf,  main = expression("ACF - Linear Model co2 ~ time(co2) "))
+plot(plt.pacf,  main = expression("PACF - Linear Model co2 ~ time(co2) "))
+
+co2.ts.lm.quard = lm(co2 ~ time(co2) + I(time(co2)^2))
+summary(co2.ts.lm.quard)
+qqPlot(co2.ts.lm.quard$residuals, 
+    main = expression("Linear Quard Model co2 ~ time(co2) + time(co2)^2 "))
+plt.acf = acf(co2.ts.lm.quard$residuals, plot = FALSE)
+plt.pacf = pacf(co2.ts.lm.quard$residuals, plot = FALSE)
+plot(plt.acf, 
+   main = expression("ACF - Linear Quard Model co2 ~ time(co2) + time(co2)^2 "))
+plot(plt.pacf, 
+   main = expression("PACF -Linear Quard Model co2 ~ time(co2) + time(co2)^2 "))
+
+co2.ts.lm.log = lm(log(co2) ~ time(co2) )
+summary(co2.ts.lm.log)
+qqPlot(co2.ts.lm.log$residuals, 
+    main = expression("Linear Quard Model log(co2) ~ time(co2)"))
+plt.acf = acf(co2.ts.lm.log$residuals, plot = FALSE)
+plt.pacf = pacf(co2.ts.lm.log$residuals, plot = FALSE)
+plot(plt.acf, main = expression("ACF - Linear log Model log(co2) ~ time(co2)"))
+plot(plt.pacf, 
+     main = expression("PACF - Linear log Model log(co2) ~ time(co2)"))
+
+
+
+co2.df = data.frame(co2.ppo = c(co2), time = c(time(co2)))
+# co2.df$season = as.factor(round(co2.df$time %% 4))
+co2.df$season = as.factor(cycle(co2))
+head(co2.df,25)
+str(co2.df)
+  
+co2.ts.lm.quard.season1 = lm(co2 ~ time(co2)  +  
+                               I(time(co2)^2) + as.character(cycle(co2) %%4) )
+summary(co2.ts.lm.quard.season1)
+qqPlot(co2.ts.lm.quard.season1$residuals, 
+    main = expression("Linear Quard + 4 Seasons "))
+plt.acf = acf(co2.ts.lm.quard.season1$residuals, plot = FALSE)
+plt.pacf = pacf(co2.ts.lm.quard.season1$residuals, plot = FALSE)
+plot(plt.acf, main = expression("ACF - Linear Quard + 4 Seasons "))
+plot(plt.pacf, main = expression("PACF - Linear Quard + 4 Seasons "))
+
+co2.ts.lm.quard.season2 = lm(co2.ppo ~ time  + I(time(co2)^2) + season, data = co2.df)
+summary(co2.ts.lm.quard.season2)
+qqPlot(co2.ts.lm.quard.season2$residuals, 
+    main = expression("Linear Quard + 12 Seasons "))
+plt.acf = acf(co2.ts.lm.quard.season2$residuals, plot = FALSE)
+plt.pacf = pacf(co2.ts.lm.quard.season2$residuals, plot = FALSE)
+plot(plt.acf, main = expression("ACF - Linear Quard + 12 Seasons "))
+plot(plt.pacf, main = expression("PACF - Linear Quard + 12 Seasons "))
+
+
+
+
+```
+
+```{r}
+
+Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
+Box.test(co2.ts.lm.quard$residuals, type="Ljung-Box")
+Box.test(co2.ts.lm.log$residuals, type="Ljung-Box")
+Box.test(co2.ts.lm.quard.season1$residuals, type="Ljung-Box")
+Box.test(co2.ts.lm.quard.season2$residuals, type="Ljung-Box")
+
+```
+
+  All linear model shows that we cannot reject the null hypothesis of residual are i.i.d. Our model(s) missed important information in the data and, residuals still have significant autocorrelation.
+
+**Part 3 (4 points)**
+
+Following all appropriate steps, choose an ARIMA model to fit to this `co2` series. Discuss the characteristics of your model and how you selected between alternative ARIMA specifications. Use your model to generate forecasts to the present. 
+
+```{r fig.height=10}
+
+
+par(mfrow = c(4, 1))
+
+co2.arima = arima(co2, order = c(1,1,2))
+co2.arima
+hist(co2.arima$residuals, main = "ARIMA (1,1,2)")
+plot(co2.arima$residuals, main = "ARIMA (1,1,2)")
+plt.acf = acf(co2.arima$residuals, plot = FALSE)
+plt.pacf = pacf(co2.arima$residuals, plot=FALSE)
+plot(plt.acf, main = "ARIMA (1,1,2)")
+plot(plt.pacf,main = "ARIMA (1,1,2)")
+
+
+# co2.sarima = arima(co2, order = c(6,1,2), seasonal = c(1,0,2)) 
+co2.sarima = arima(co2, order = c(2,1,2), seasonal = c(1,0,0), method = "CSS")
+
+co2.sarima
+summary(co2.sarima)
+hist(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
+plot(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
+plt.acf = acf(co2.sarima$residuals, plot = FALSE)
+plt.pacf = pacf(co2.sarima$residuals, plot=FALSE)
+plot(plt.acf, main = "SARIMA (2,1,2) (1,0,0)")
+plot(plt.pacf,main = "SARIMA (2,1,2) (1,0,0)")
+
+
+co2.auto.arima = auto.arima(co2, trace=TRUE, test="kpss", ic="bic")
+co2.auto.arima
+# ARIMA(0,1,1)(1,1,2)
+summary(co2.auto.arima)
+hist(co2.auto.arima$residuals, main = "Auto ARIMA")
+plot(co2.auto.arima$residuals, main = "Auto ARIMA")
+plt.acf = acf(co2.auto.arima$residuals, plot = FALSE)
+plt.pacf = pacf(co2.auto.arima$residuals, plot=FALSE)
+plot(plt.acf, main = "Auto ARIMA")
+plot(plt.pacf,main = "Auto ARIMA")
+
+
+
+```
+
+  
+  **LJung-BOxtest**
+```{r}
+
+
+
+# test for autocorrelaton of residuals
+# augment(co2.arima) %>% features(.resid, ljung_box)
+# 
+
+# # inverse roots within unit circle
+# gg_arma(series1_model)
+# 
+# # modulus of roots exceed unity
+# Mod(polyroot(c(1, -coef(series1_model)[['estimate']])))
+
+
+Box.test(co2.arima$residuals, type="Ljung-Box")
+Box.test(co2.sarima$residuals, type="Ljung-Box")
+Box.test(co2.auto.arima$residuals, type="Ljung-Box")
+
+```
+
+
+
+###Forecast for next 6 months
+```{r}
+
+co2.forecast <- forecast(co2.sarima, 284)
+co2.forecast.summary = summary(co2.forecast)
+plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
+col.main = "darkgreen") 
+
+
+```
+
+**Part 4 (5 points)**
+
+The file `co2_weekly_mlo.txt` contains weekly observations of atmospheric carbon dioxide concentrations measured at the Mauna Loa Observatory from 1974 to 2020, published by the National Oceanic and Atmospheric Administration (NOAA). Convert these data into a suitable time series object, conduct a thorough EDA on the data, addressing the problem of missing observations and comparing the Keeling Curve's development to your predicitons from Parts 2 and 3. Use the weekly data to generate a month-average series from 1997 to the present and use this to generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3. 
+
+```{r}
+
+#Custom funciton to ignore multiple spaces
+txt.custom.read = function(file, skip.rows=NULL, sep){
+    if (!is.null(skip.rows)) {
+        tmp = readLines(file)
+        tmp = tmp[-(skip.rows)]
+    }
+  
+    tmpFile = tempfile()
+    on.exit(unlink(tmpFile))
+    tmp = gsub(' +',x=tmp, replacement =',' ,perl=TRUE)
+    writeLines(tmp,tmpFile)
+    file = tmpFile
+    
+    result = read.csv(file, sep=',',header=FALSE)
+    return(result)
+}
+
+co2.noaa.df = txt.custom.read("co2_weekly_mlo.txt", skip = (1:49), sep = " ")
+colnames(co2.noaa.df) <- c('blank', 'year', 'month','day', 'week', 
+                           'ppm','days','1yrago', '10yearago', 'since1800')
+
+#Remove blank column
+co2.noaa.df <- subset(co2.noaa.df, select = -c(blank))
+
+head(co2.noaa.df)
+summary(co2.noaa.df)
+str(co2.noaa.df)
+describe(co2.noaa.df)
+
+
+```
+NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 with 10 variables. Variable `PPM` tracks weekly co2 presence.  We will be using `PPM` values for our analysis. Author uses -999 as missing value and we have 18 observation that have `PPM` value as a null, we will fill them in before developing time series model.
+
+```{r}
+
+
+
+# Get monthly averages for replacement after removing NA or -999  
+co2.noaa.month.df <- co2.noaa.df %>% 
+                       filter(  ppm >0) %>% 
+                       group_by(year, month) %>% 
+                       summarise(ppm_month_avg = mean(ppm))
+
+# join to add monthly averages 
+co2.noaa.imputed.df <- merge(co2.noaa.df, co2.noaa.month.df, by = c('year','month'))
+
+# Calculate imputed value
+co2.noaa.imputed.df <- co2.noaa.imputed.df %>% 
+                                  mutate(ppm_imputed = ifelse(test = (ppm <= 0), ppm_month_avg,
+                                                   no=ppm))
+
+                
+co2.noaa.ts <- ts(co2.noaa.imputed.df$ppm_imputed, start=c(1959), frequency=52)
+
+par(mfrow = c(2, 1))
+
+plot(co2.noaa.ts, 
+   main = "With imputed values for missing vales Weekly series 
+           CO2 Presence in air (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue", cex.main=0.5)
+
+
+#Calculate monthly averages as our forecast is only on monthly basis
+co2.noaa.month.imputed.df <- co2.noaa.imputed.df %>% 
+                       group_by(year, month) %>% 
+                       summarise(ppm_month_avg = mean(ppm_imputed))
+
+summary(co2.noaa.month.imputed.df)
+co2.noaa.month.ts <- ts(co2.noaa.imputed.df$ppm_imputed, start=c(1959), 
+                       frequency=12)
+
+autoplot(co2.noaa.month.ts,
+      main = "NOAA data With imputed values for missing vales 
+         Monthly series\n CO2 Presence in air (1959 - 1997)", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+
+
+#transforming time series data to dataframe, so that we can join
+co2.forecast.df <- data.frame(floor(as.numeric(time(co2.forecast.summary[4]$mean))),
+                             cycle(time(co2.forecast.summary[4]$mean)), co2.forecast.summary[4]$mean)
+
+colnames(co2.forecast.df) <- c("year", "month", "ppm.forecast")
+
+co2.noaa.forecast.merged <- merge( co2.noaa.month.imputed.df, co2.forecast.df, all.x=TRUE)
+
+co2.noaa.forecast.merged<-
+    co2.noaa.forecast.merged %>%
+          mutate(year.month = paste(year, ".", month))
+
+forecst.df.filtered = co2.noaa.forecast.merged %>%
+                      filter(year > 1997)
+ggplot(data = forecst.df.filtered, aes(x=year, month)) +
+  geom_line(aes(y= ppm_month_avg), colour="blue") +
+  geom_line(aes(y= ppm.forecast), colour = "green")
+
+
+sarima.forecast = predict(object=co2.sarima, new_data=co2.noaa.month.imputed.df)
+
+```
+In the above code, we imputed missing values by using monthly average for that period and above graph looks good with imputed values
+
+```{r}
+
+
+```
+
+**Part 5 (5 points)**
+
+Split the NOAA series into training and test sets, using the final two years of observations as the test set. Fit an ARIMA model to the series following all appropriate steps, including comparison of how candidate models perform both in-sample and (psuedo-) out-of-sample. Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
+
+
+```{r}
+
+# autoplot(flight.prices.training, freq) + 
+#   autolayer(flight.prices.test, freq, colour = 'red')
+
+```
+
+
+
+
+
+
+
