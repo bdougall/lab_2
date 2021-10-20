@@ -285,11 +285,11 @@ plot(plt.pacf,
 ## Seasonal Time-Trend Model
 ```{r fig.height=10}
 # Add seasonal dummy to data.frame
-co2.df = data.frame(co2.ppo = c(co2), time = c(time(co2)))
+co2.df = data.frame(ppm = c(co2), time = c(time(co2)))
 co2.df$season = as.factor(cycle(co2))
 
 par(mfrow = c(3, 1))
-co2.ts.lm.stt = lm(co2.ppo ~ time  + I(time(co2)^2) + season, data = co2.df)
+co2.ts.lm.stt = lm(ppm ~ time  + I(time(co2)^2) + season, data = co2.df)
 summary(co2.ts.lm.stt)
 qqPlot(co2.ts.lm.stt$residuals, 
     main = expression("Quadratic Time Trend Model with 12 Seasonal Components"))
@@ -313,21 +313,26 @@ The Ljung-Box tests for each model reject the null hypothesis that the data are 
 
 Following all appropriate steps, choose an ARIMA model to fit to this `co2` series. Discuss the characteristics of your model and how you selected between alternative ARIMA specifications. Use your model to generate forecasts to the present. 
 
+## SARIMA Model Selection
 ```{r fig.height=10}
-par(mfrow = c(4, 1))
+par(mfrow = c(2, 1))
 
-co2.sarima = arima(co2, order = c(2,1,2), seasonal = c(1,0,0), method = "CSS")
+co2.sarima = arima(co2, order = c(2,1,2), seasonal = c(2,1,0), method = "CSS")
 
 co2.sarima
 summary(co2.sarima)
 hist(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
 plot(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
+
 plt.acf = acf(co2.sarima$residuals, plot = FALSE)
 plt.pacf = pacf(co2.sarima$residuals, plot=FALSE)
 plot(plt.acf, main = "SARIMA (2,1,2) (1,0,0)")
 plot(plt.pacf,main = "SARIMA (2,1,2) (1,0,0)")
+```
 
 
+## Auto ARIMA
+```{r fig.height=10}
 co2.auto.arima = auto.arima(co2, trace=TRUE, test="kpss", ic="bic")
 co2.auto.arima
 # ARIMA(0,1,1)(1,1,2)
@@ -341,32 +346,12 @@ plot(plt.pacf,main = "Auto ARIMA")
 
 ```
 
-
-```{r}
-
-Box.test(co2.arima$residuals, type="Ljung-Box")
-Box.test(co2.sarima$residuals, type="Ljung-Box")
-Box.test(co2.auto.arima$residuals, type="Ljung-Box")
-
-```
-
-###Forecast for next 6 months
-```{r}
-
-co2.forecast <- forecast(co2.sarima, 284)
-co2.forecast.summary = summary(co2.forecast)
-plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
-col.main = "darkgreen") 
-
-
-```
-
-
+## Custom Model Selection Algorithm
 ```{r, message=FALSE, warning=FALSE}
-
 get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
 {
     best.aic <- 1e8
+    df.results = data.frame()
     n<-length(x.ts)
     for(p in 0:maxord[1]) for(d in 0:maxord[2]) for(q in 0:maxord[3])
       for(P in 0:maxord[4]) for(D in 0:maxord[5]) for(Q in 0:maxord[6])
@@ -374,45 +359,37 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
         fit <- arima(x.ts, order=c(p,d,q),
                            seas = list(order=c(P,D,Q),
                            frequency(x.ts)), method="CSS")
-        fit.aic <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
-        if (fit.aic < best.aic)
-        { 
-          best.aic <- fit.aic
-          best.fit <- fit
-          best.model <- c(p,d,q,P,D,Q)
-        }
+        # consistent AIC
+        fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
+        # regular AIC
+        fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
+        # BIC
+        fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
+        df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
+                         AIC= fit.aic, BIC= fit.bic)
+        df.results <- rbind(df.results, df)
       }
-    list(best.aic, best.fit, best.model)
+    # list(best.aic, best.fit, best.model)
+    df.results
 }
 
-best.arima.co2 <- get.best.arima(co2.ts$ppm, maxord=c(4,4,4,4,4,4))
-
+arima.search <- get.best.arima(co2.df$ppm, maxord=c(4,4,4,4,4,4))
+best10.arima <- head(arima.search[with(arima.search, order(AICc)),], n=10)
 ```
 
-```{r, message=FALSE, warning=FALSE}
-best.arima.co2[[1]]
-best.fit.co2 <- best.arima.co2[[2]]
-best.arima.co2[[3]]
-
-# Residual diagnostics
-plot(best.fit.co2$resid, type="l", main="Residuals: t-plot")
-hist(best.fit.co2$resid)
-acf(best.fit.co2$resid, main="ACF of the Residual Series")
-pacf(best.fit.co2$resid, main="PACF of the Residual Series")
+```{r echo=FALSE, results='asis'}
+row.names(best10.arima) <- NULL
+kable(best10.arima, caption='Top 10 Models.')
 ```
 
-```{r, message=FALSE, warning=FALSE}
-new.t = seq(1998, len= (2021-1997)*12, by=1/12)
-new.dat <- data.frame(month = new.t)
-arima.preds <- ts(predict(best.fit.co2, (2021-1997)*12)$pred, st=1998, fr=12)
+## Best Model Forecasts
+```{r}
+co2.forecast <- forecast(co2.sarima, 284)
+co2.forecast.summary = summary(co2.forecast)
+plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
+col.main = "darkgreen") 
 
-ts.plot(co2, arima.preds, lty=1:2,
-        col=c("navy", "blue"),
-        ylab="CO2 Levels (ppm)",
-        main="SARIMA(3,0,3,2,2,4) Forecasts" 
-        )
 ```
-
 
 **Part 4 (5 points)**
 
@@ -425,53 +402,17 @@ colnames(co2_weekly) <- c("yr", "mon", "day", "decimal", "ppm", "days",
 summary(co2_weekly)
 ```
 
-```{r}
-
-#Custom funciton to ignore multiple spaces
-txt.custom.read = function(file, skip.rows=NULL, sep){
-    if (!is.null(skip.rows)) {
-        tmp = readLines(file)
-        tmp = tmp[-(skip.rows)]
-    }
-  
-    tmpFile = tempfile()
-    on.exit(unlink(tmpFile))
-    tmp = gsub(' +',x=tmp, replacement =',' ,perl=TRUE)
-    writeLines(tmp,tmpFile)
-    file = tmpFile
-    
-    result = read.csv(file, sep=',',header=FALSE)
-    return(result)
-}
-
-co2.noaa.df = txt.custom.read("co2_weekly_mlo.txt", skip = (1:49), sep = " ")
-colnames(co2.noaa.df) <- c('blank', 'year', 'month','day', 'week', 
-                           'ppm','days','1yrago', '10yearago', 'since1800')
-
-#Remove blank column
-co2.noaa.df <- subset(co2.noaa.df, select = -c(blank))
-
-head(co2.noaa.df)
-summary(co2.noaa.df)
-str(co2.noaa.df)
-describe(co2.noaa.df)
-
-
-```
 NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 with 10 variables. Variable `PPM` tracks weekly co2 presence.  We will be using `PPM` values for our analysis. Author uses -999 as missing value and we have 18 observation that have `PPM` value as a null, we will fill them in before developing time series model.
 
-```{r}
-
-
-
+```{r, message=FALSE, warning=FALSE}
 # Get monthly averages for replacement after removing NA or -999  
-co2.noaa.month.df <- co2.noaa.df %>% 
+co2.noaa.month.df <- co2_weekly %>% 
                        filter(  ppm >0) %>% 
                        group_by(year, month) %>% 
                        summarise(ppm_month_avg = mean(ppm))
 
 # join to add monthly averages 
-co2.noaa.imputed.df <- merge(co2.noaa.df, co2.noaa.month.df, by = c('year','month'))
+co2.noaa.imputed.df <- merge(co2_weekly, co2.noaa.month.df, by = c('year','month'))
 
 # Calculate imputed value
 co2.noaa.imputed.df <- co2.noaa.imputed.df %>% 

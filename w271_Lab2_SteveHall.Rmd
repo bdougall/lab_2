@@ -197,6 +197,7 @@ pacf(log.fit$resid, main="PACF of the Residual Series")
 Box.test(residuals(log.fit), lag=12, type="Ljung")
 
 ```
+
 ## Seasonal Time-Trend Model
 
 ```{r, message=FALSE, warning=FALSE}
@@ -275,6 +276,7 @@ hist(best.fit.co2$resid)
 acf(best.fit.co2$resid, main="ACF of the Residual Series")
 pacf(best.fit.co2$resid, main="PACF of the Residual Series")
 ```
+
 ```{r, message=FALSE, warning=FALSE}
 new.t = seq(1998, len= (2021-1997)*12, by=1/12)
 new.dat <- data.frame(month = new.t)
