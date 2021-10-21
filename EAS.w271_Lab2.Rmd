@@ -1,0 +1,345 @@
+---
+title: 'Statistical Methods for Discrete Response, Time Series, and Panel Data (W271): Lab 2'
+subtitle: 'Due Monday October 25 2021 11:59pm'
+geometry: margin=1in
+output:
+  pdf_document:
+    latex_engine: xelatex
+  number_sections: yes
+  html_document: default
+  toc: yes
+fontsize: 11pt
+---
+
+## Instructions (Please Read Carefully):
+
+* Submit by the due date. **Late submissions will not be accepted**
+
+* No page limit, but be reasonable
+
+* Do not modify fontsize, margin or line-spacing settings
+
+* One student from each group should submit the lab to their student github repo by the deadline
+
+* Submit two files:
+    
+    1. A pdf file that details your answers. Include all R code used to produce the answers
+    
+    2. The R markdown (Rmd) file used to produce the pdf file
+  
+    The assignment will not be graded unless **both** files are submitted
+      
+* Name your files to include all group members names. For example, if the students' names are Stan Cartman and Kenny Kyle, name your files as follows:
+
+    * `StanCartman_KennyKyle_Lab2.Rmd`
+    * `StanCartman_KennyKyle_Lab2.pdf`
+            
+* Although it sounds obvious, please write your name on page 1 of your pdf and Rmd files
+
+* All answers should include a detailed narrative; make sure that your audience can easily follow the logic of your analysis. All steps used in modelling must be clearly shown and explained; do not simply 'output dump' the results of code without explanation 
+
+* If you use libraries and functions for statistical modeling that we have not covered in this course, you must provide an explanation of why such libraries and functions are used and reference the library documentation
+
+* For mathematical formulae, type them in your R markdown file. Do not e.g. write them on a piece of paper, snap a photo, and use the image file
+
+* Incorrectly following submission instructions results in deduction of grades
+
+* Students are expected to act with regard to UC Berkeley Academic Integrity.
+
+\newpage
+
+# The Keeling Curve
+
+In the 1950s, the geochemist Charles David Keeling observed a seasonal pattern in the amount of carbon dioxide present in air samples collected over the course of several years. He attributed this pattern to varying rates of photosynthesis throughout the year, caused by differences in land area and vegetation cover between the Earth's northern and southern hemispheres.
+
+In 1958 Keeling began continuous monitoring of atmospheric carbon dioxide concentrations from the Mauna Loa Observatory in Hawaii. He soon observed a trend increase carbon dioxide levels in addition to the seasonal cycle, attributable to growth in global rates of fossil fuel combustion. Measurement of this trend at Mauna Loa has continued to the present.
+
+The `co2` data set in R's `datasets` package (automatically loaded with base R) is a monthly time series of atmospheric carbon dioxide concentrations measured in ppm (parts per million) at the Mauna Loa Observatory from 1959 to 1997. The curve graphed by this data is known as the 'Keeling Curve'.
+
+```{r}
+plot(co2, ylab = expression("CO2 ppm"), col = 'blue', las = 1)
+title(main = "Monthly Mean CO2 Variation")
+```
+
+\newpage
+
+**Part 1 (3 points)**
+
+Conduct a comprehensive Exploratory Data Analysis on the `co2` series. This should include (without being limited to) a thorough investigation of the trend, seasonal and irregular elements. 
+
+```{r}
+#https://github.com/rstudio/bookdown/issues/292
+plot(co2)
+summary(co2)
+str(co2)
+acf(co2)
+pacf(co2)
+library(Hmisc)
+co2df=data.frame(
+  co2data=as.vector(co2),
+  co2time=time(co2)
+  )
+describe(co2df)
+hist(co2,main="CO2 Histogram")
+co2_decomp=decompose(co2)
+plot(co2_decomp)
+```
+
+**Part 2 (3 points)**
+
+Fit a linear time trend model to the `co2` series, and examine the characteristics of the residuals. Compare this to a higher-order polynomial time trend model. Discuss whether a logarithmic transformation of the data would be appropriate. Fit a polynomial time trend model that incorporates seasonal dummy variables, and use this model to generate forecasts up to the present. 
+
+```{r}
+
+########################################
+#first linear
+co2_linear=lm(co2data~co2time,data=co2df)
+summary(co2_linear)
+hist(co2_linear$residuals,main="Residuals From Linear Model")
+plot(co2_linear)
+plot(co2,main="Linear Model")
+abline(co2_linear,col="red")
+
+#################################3
+# explore about log transform
+co2_log=lm(log(co2data)~co2time,data=co2df)
+hist(co2_log$residuals,main="Residuals From Log-Transformation Model")
+plot(co2_log)
+plot(log(co2),main="Log-Transformation Model")
+abline(co2_log,col="red")
+
+
+#############################################
+#second polynomial
+co2_poly=lm(co2data~co2time+I(co2time^2),data=co2df)
+summary(co2_poly)
+hist(co2_poly$residuals,main="Residuals From Quadratic Model")
+plot(co2_poly)
+plot(co2df$co2time,co2df$co2data,type = "l",
+     main="Quadratic Model",xlab="Time",ylab="CO2 (ppm)")
+predicted_co2_poly <- predict(co2_poly,list(co2time=co2df$co2time))
+x_for_plot=as.vector(co2df$co2time)
+y_for_plot=as.vector(predicted_co2_poly)
+lines(x_for_plot,y_for_plot,col="red")
+
+#######################################
+#try to understand seasons
+seasonMaker=function(d) {
+  int_floor=floor(d)
+  int_ceil=ceiling(d)
+  dpart=d-int_floor
+  twelths=seq(from=0,to=1,by=1/12)
+  abs_dists=abs(twelths-dpart)
+  #print(abs_dists)
+  idx_min=which.min(abs_dists)
+  if(idx_min==length(abs_dists)) {
+    return(1)
+  }
+  return(idx_min)
+}
+seasonMakerIndicator=function(idx,s) {
+  if(s==idx) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+seasonData=sapply(co2df$co2time,seasonMaker)
+co2Sdf=data.frame(
+  co2time=co2df$co2time,
+  co2data=co2df$co2data
+)
+for(sname in seq(from=1,to=11)) {
+  col_name=paste("season_",sname,sep="")
+  season_indicators=c()
+  for(t_idx in 1:length(seasonData)) {
+    season_idx=seasonData[t_idx]
+    season_indicator=seasonMakerIndicator(season_idx,sname)
+    season_indicators=c(season_indicators,season_indicator)
+  }
+  co2Sdf[,col_name]=season_indicators
+}
+head(co2Sdf)
+
+#######################################
+# polynomial model using dummy seasons
+co2s_poly=lm(co2data~co2time+I(co2time^2)+season_1+season_2+
+               season_3+season_4+season_5+season_6+season_7+
+               season_8+season_9+season_10+season_11,data=co2Sdf)
+summary(co2s_poly)
+hist(co2s_poly$residuals,
+     main="Residuals From Quadratic Model With Dummy Seasons")
+acf(co2s_poly$residuals,
+    main="Correlogram of Residuals from Quadratic Model With Dummy Seasons")
+pacf(co2s_poly$residuals,
+     main="PACF Residuals from Quadratic Model With Dummy Seasons")
+plot(co2s_poly)
+plot(co2Sdf$co2time,co2Sdf$co2data,type = "l",
+     main="Quadratic Model with Dummy Seasons",sub="With Predictions in Blue",xlim=c(1959,2022),ylim=c(300,500),xlab="Time",ylab="CO2 (ppm)")
+predicted_co2s_poly <- predict(co2s_poly,list(co2time=co2Sdf$co2time,
+                                             season_1=co2Sdf$season_1,
+                                             season_2=co2Sdf$season_2,
+                                             season_3=co2Sdf$season_3,
+                                             season_4=co2Sdf$season_4,
+                                             season_5=co2Sdf$season_5,
+                                             season_6=co2Sdf$season_6,
+                                             season_7=co2Sdf$season_7,
+                                             season_8=co2Sdf$season_8,
+                                             season_9=co2Sdf$season_9,
+                                             season_10=co2Sdf$season_10,
+                                             season_11=co2Sdf$season_11))
+x_for_plot=as.vector(co2Sdf$co2time)
+y_for_plot=as.vector(predicted_co2s_poly)
+lines(x_for_plot,y_for_plot,col="red")
+
+###########################
+# now generate time data from 1998 to present so that the predictor
+# can generate predictions for it
+from_1998_to_present=seq(from=max(co2Sdf$co2time),to=2021+10.5/12,by=1/12)
+from_1998_to_present_season_idx=sapply(from_1998_to_present,seasonMaker)
+then_to_now_df=data.frame(
+  co2time=from_1998_to_present
+)
+for(sname in seq(from=1,to=11)) {
+  col_name=paste("season_",sname,sep="")
+  season_indicators=c()
+  for(t_idx in 1:length(from_1998_to_present_season_idx)) {
+    season_idx=from_1998_to_present_season_idx[t_idx]
+    season_indicator=seasonMakerIndicator(season_idx,sname)
+    season_indicators=c(season_indicators,season_indicator)
+  }
+  then_to_now_df[,col_name]=season_indicators
+}
+predicted_FUTURE_co2s_poly <- predict(co2s_poly,
+                                      list(co2time=then_to_now_df$co2time,
+                                             season_1=then_to_now_df$season_1,
+                                             season_2=then_to_now_df$season_2,
+                                             season_3=then_to_now_df$season_3,
+                                             season_4=then_to_now_df$season_4,
+                                             season_5=then_to_now_df$season_5,
+                                             season_6=then_to_now_df$season_6,
+                                             season_7=then_to_now_df$season_7,
+                                             season_8=then_to_now_df$season_8,
+                                             season_9=then_to_now_df$season_9,
+                                             season_10=then_to_now_df$season_10,
+                                           season_11=then_to_now_df$season_11))
+x_for_plot=as.vector(then_to_now_df$co2time)
+y_for_plot=as.vector(predicted_FUTURE_co2s_poly)
+lines(x_for_plot,y_for_plot,col="blue")
+
+
+
+
+                                             
+                                             
+                                             
+
+```
+
+**Part 3 (4 points)**
+
+Following all appropriate steps, choose an ARIMA model to fit to this `co2` series. Discuss the characteristics of your model and how you selected between alternative ARIMA specifications. Use your model to generate forecasts to the present.
+
+```{r}
+first_diff=diff(co2)
+plot(first_diff)
+diffed_co2=co2-first_diff
+head(first_diff)
+
+arima_matrix=matrix(c(0,0,0,0),nrow=1,ncol=4)
+for(p in 1:3) {
+  for(i in 1:3) {
+    for(q in 1:3) {
+      print(paste(p,i,q))
+      my_arima=arima(co2,order=c(p,i,q),optim.control = list(maxit=500))
+      arima_matrix=rbind(arima_matrix,c(p,i,q,my_arima$aic))
+    }
+  }
+}
+arima_df=data.frame(
+  p=arima_matrix[,1],
+  i=arima_matrix[,2],
+  q=arima_matrix[,3],
+  a=arima_matrix[,4]
+)
+arima_df=arima_df[2:dim(arima_df)[1],]
+rownames(arima_df) <- 1:nrow(arima_df)
+head(arima_df)
+best_arima_idx=which.min(arima_df$a)
+print(best_arima_idx)
+print(arima_df[best_arima_idx,])
+best_arima=arima(co2,c(arima_df[best_arima_idx,1],arima_df[best_arima_idx,2],arima_df[best_arima_idx,3]), optim.control = list(maxit=500))
+print(best_arima)
+#install.packages("forecast")
+library("forecast")
+print(auto.arima(co2))
+plot(forecast(best_arima,(2021-1998)*12))
+plot(forecast(auto.arima(co2),(2021-1998)*12))
+                         
+
+```
+
+
+**Part 4 (5 points)**
+
+The file `co2_weekly_mlo.txt` contains weekly observations of atmospheric carbon dioxide concentrations measured at the Mauna Loa Observatory from 1974 to 2020, published by the National Oceanic and Atmospheric Administration (NOAA). Convert these data into a suitable time series object, conduct a thorough EDA on the data, addressing the problem of missing observations and comparing the Keeling Curve's development to your predictions from Parts 2 and 3. Use the weekly data to generate a month-average series from 1997 to the present and use this to generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3. 
+
+```{r}
+mlodf=read.csv("mlo.csv")
+#library(Hmisc)
+#describe(mlodf)
+# get regular data (from yr dec)
+
+mlodf_impute=data.frame(
+  yr_dec=mlodf$YRDEC,
+  co2=mlodf$CO2
+)
+mlodf_impute=mlodf_impute[mlodf_impute$co2>0,]
+
+print("dim before")
+tail(mlodf_impute)
+print(dim(mlodf_impute))
+for(i in 1:nrow(mlodf)) {
+  temp_row=mlodf[i,]
+  if(temp_row$YRAGO>0) {
+    new_row=c(temp_row[1,"YRDEC"]-1,temp_row[1,"YRAGO"])
+    mlodf_impute=rbind(mlodf_impute,new_row)
+    if(i==1) {
+      print('tail')
+      print(tail(mlodf_impute))
+    }
+  }
+  if(temp_row$TENYRAGO>0) {
+    new_row=c(temp_row[1,"YRDEC"]-10,temp_row[1,"TENYRAGO"])
+    mlodf_impute=rbind(mlodf_impute,new_row)    
+  }
+}
+print("dim after")
+print(dim(mlodf_impute))
+mlodf_impute=mlodf_impute[order(mlodf_impute$yr_dec),]
+plot(mlodf_impute[,1],mlodf_impute[,2],type="l")
+write.csv(mlodf_impute,file="eddie.dat",row.names = FALSE)
+#mlodf_ts=as.ts(mlodf_impute$co2)
+#plot(mlodf_ts)
+#write.csv(mlodf_ts,file="eddie.dat",sep="\t")
+
+```
+
+
+**Part 5 (5 points)**
+
+Split the NOAA series into training and test sets, using the final two years of observations as the test set. Fit an ARIMA model to the series following all appropriate steps, including comparison of how candidate models perform both in-sample and (psuedo-) out-of-sample. Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
+
+```{r}
+noaa_train=mlodf_impute[mlodf_impute$yr_dec<2020,]
+noaa_test=mlodf_impute[mlodf_impute$yr_dec>=2020,]
+
+```
+
+
+
+
+
+
+
+
