@@ -89,7 +89,6 @@ opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=
 
 str(co2)
 summary(co2)
-
 co2.decompose = decompose(co2)
 co2.diff = diff(co2,differences = 1)
 co2.seasdiff = diff(co2,lag = 12)
@@ -298,9 +297,7 @@ unitroot_nsdiffs(co2)
 # The PACF only a seasonal spike at a lag of 12 - (1,0,0)
 # Since we used the PACF for the seasonal part, we'll estimate the non-seasonal with the ACF
 # The first 2 autocorrelations in the ACF are significant, so we'll estimate an MA(2)
-as_tsibble(co2) %>%
-  gg_tsdisplay(difference(value), plot_type = "partial") + 
-  labs(title = "Non-Seasonal 1st Difference", y = "")
+tsdisplay(difference(co2), main = "Non-Seasonal 1st Difference")
 
 # Create an Arima model based upon our observations
 co2.sarima = arima(co2, order = c(0,1,2), seas = list(order=c(1,0,0), 
@@ -315,14 +312,14 @@ summary(co2.sarima)
 # The histogram plot looks approximately normal
 hist(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
 # A time series plot of the residuals appears to have a constant mean
-plot(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
-plt.acf = acf(co2.sarima$residuals, plot = FALSE)
-plt.pacf = pacf(co2.sarima$residuals, plot=FALSE)
 # The ACF and PACF plots still have a few significant autocorrelations
-plot(plt.acf, main = "SARIMA (0,1,2) (1,0,0)")
-plot(plt.pacf,main = "SARIMA (0,1,2) (1,0,0)")
+tsdisplay(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
 # However, the model passes the Ljung-Box test
 Box.test(co2.sarima$residuals, type="Ljung-Box")
+
+# Check the inverse unit roots for stationarity
+# The inverse unit roots are near non-stationarity
+autoplot(co2.sarima)
 ```
 To create our initial model, we first ran unit root tests to check the number of seasonal and non-seasonal differences required for stationarity. These tests returned $1$ non-seasonal difference and $0$ seasonal differences required, so we used these values as our d and D to estimate our initial Arima model. To obtain p, q, P, and Q, we took a first non-seasonal difference and plotted the ACF, PACF, and differenced values as a time series. The time series plot of the differenced values appeared relatively stationary. The ACF and PACF still showed evidence of autocorrelation. Since the PACF had fewer repeating seasonal lags, we used this plot to estimate the seasonal part of the Arima model. The PACF plot showed a significant autocorrelation at only the first seasonal lag, at $12$, so we estimated $(1,0,0)$ for the seasonal part of the model. For the non-seasonal part of the Arima model, the ACF showed significant autocorrelation at lags $1$ and $2$, so we estimated an MA model of order $2$, or $(0,1,2)$ for the non-seasonal component (with a difference of $1$ since we took $1$ non-seasonal difference). 
 
@@ -330,7 +327,7 @@ The ACF and PACF plots of the residuals of this estimated model ($(0,1,2)(1,0,0)
 
 The Ljung-Box test shows a p-value $>0.05$, meaning that we reject the null hypothesis that the residuals are auto-correlated.
 
-Since the ACF and PACF plots still showed several strong autocorrelations, we proceeded to iterate over model parameters to see if we could improve the AIC score and create a model with residuals that better approximated white noise.
+Since the ACF and PACF plots still showed several strong autocorrelations and the plot of the inverse unit roots showed values near unity, we proceeded to iterate over model parameters to see if we could improve the AIC score and create a model with residuals that better approximated white noise.
 
 ## Model Selection Algorithm
 ```{r, message=FALSE, warning=FALSE}
@@ -390,17 +387,16 @@ co2.sarima.2 <- arima(co2, order=c(p,d,q),
 # Inspect the residual plots and find the estimated AICc
 sarima2.aicc <- -2 *co2.sarima.2$loglik + (log(length(co2))+1) * length(co2.sarima.2$coef)
 hist(residuals(co2.sarima.2))
-plot(residuals(co2.sarima.2))
-acf(co2.sarima$residuals)
-pacf(co2.sarima.2$residuals)
+tsdisplay(co2.sarima.2$residuals, main = {toString(pdqPDQ)})
 sarima2.aicc
 Box.test(co2.sarima.2$residuals, type="Ljung-Box")
+autoplot(co2.sarima.2)
 ```
 The AICc value is smaller than that of our initial model estimate, and the majority of ACF and PACF values fall within the $95\%$ confidence interval bounds for white noise. In addition, the Ljung-Box test indicates that the data are independently distributed since we fail to reject the null hypothesis. 
 
 The histogram of the residuals shows them to be approximately normally distributed and the plot of the residuals as a time series resembles white noise.
 
-Since this model has a lower AICc than our initial estimate, the residuals resemble white noise, and we have not found significant evidence of residual autocorrelation, we proceed with using this model in our forecast.
+Since this model has a lower AICc than our initial estimate, the residuals resemble white noise, and we have not found significant evidence of residual autocorrelation, we proceed with using this model in our forecast. As seen in the plots of the inverse unit roots, the absolute value of the inverse unit roots are less than unity, meaning that the residuals are stationary.
 
 ## Best Model Forecasts
 ```{r}
