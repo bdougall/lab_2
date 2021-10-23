@@ -541,7 +541,11 @@ Split the NOAA series into training and test sets, using the final two years of 
 
 
 ```{r}
-
+co2.noaa.training <-  co2_noaa_monthly_df %>% filter(year <= 2019) 
+co2.6months.data <-  co2.noaa.training %>% filter(year == 2019 & month > 6)
+co2.noaa.training <- co2.noaa.training %>% anti_join(co2.6months.data, by=c("year", "month"))
+co2.noaa.test <- co2_noaa_monthly_df %>% filter(year > 2019)
+co2.noaa.test <- co2.noaa.test %>% union_all(co2.6months.data)
 
 ```
 
