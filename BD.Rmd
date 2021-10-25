@@ -89,7 +89,6 @@ opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=
 
 str(co2)
 summary(co2)
-
 co2.decompose = decompose(co2)
 co2.diff = diff(co2,differences = 1)
 co2.seasdiff = diff(co2,lag = 12)
@@ -216,9 +215,9 @@ plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n AR and seasonal dif
 
 ```
   
-  Decomposition graph confirms the findings from EDA, trend and seasonality are present int he time series.  
-  Above ACF and PACF graph shows for different adjustments of time series: 1) original series 2) deseasoned 3)detrended 4) random component of time series 5) Two period differenced for trend 5) Two period difference and seasonal differenced time series. Few observations from above graphs  
-  * PACF graph shows autocorrelation dying off at second log after deseasoned. This suggests to use only 1st order Auto regressive model. This also suggests removing seasonality is important  
+  Decomposition graph confirms the findings from EDA, trend and seasonality are present in the time series.  
+  Above ACF and PACF graph shows for different adjustments of time series: 1) original series 2) de-seasoned 3)de-trended 4) random component of time series 5) Two period differenced for trend 5) Two period difference and seasonal differenced time series. Few observations from above graphs  
+  * PACF graph shows autocorrelation dying off at second log after de-seasoned. This suggests to use only 1st order Auto regressive model. This also suggests removing seasonality is important  
   * ACF graph shows clear seasonal effect after removing trend  
   * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. This confirms the need for seasonal and Integrated treatment for our model
 
@@ -233,7 +232,7 @@ main = "Histogram: CO2 Presence in air\n after AR and seasonal difference")
 
 
 ```
-Histogram after applying seasonal and regressive difference looks close to guassian distribution. 
+Histogram after applying seasonal and regressive difference looks close to Gaussian distribution. 
 
 **Part 2 (3 points)**
 
@@ -251,36 +250,13 @@ plt.acf = acf(co2.ts.lm.linear$residuals, plot = FALSE)
 plt.pacf = pacf(co2.ts.lm.linear$residuals, plot = FALSE)
 plot(plt.acf,  main = expression("ACF - Linear Model co2 ~ time(co2) "))
 plot(plt.pacf,  main = expression("PACF - Linear Model co2 ~ time(co2) "))
+Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
 ```
+Because the variance around the trend line appeared constant, we chose not to take the log of the values of our time series observations. 
 
-## Quadratic Time Trend Model
-```{r fig.height=10}
-par(mfrow = c(3, 1))
-co2.ts.lm.quad = lm(co2 ~ time(co2) + I(time(co2)^2))
-summary(co2.ts.lm.quad)
-qqPlot(co2.ts.lm.quad$residuals, 
-    main = expression("Quadratic Model co2 ~ time(co2) + time(co2)^2 "))
-plt.acf = acf(co2.ts.lm.quad$residuals, plot = FALSE)
-plt.pacf = pacf(co2.ts.lm.quad$residuals, plot = FALSE)
-plot(plt.acf, 
-   main = expression("ACF - Quadratic Model co2 ~ time(co2) + time(co2)^2 "))
-plot(plt.pacf, 
-   main = expression("PACF - Quadratic Model co2 ~ time(co2) + time(co2)^2 "))
-```
+After fitting a linear model of time, we performed several checks to assess model fit. As seen above, the plot of the residuals against the normal distribution shows skewing in the tails, suggesting that the linear model residuals are not normally distributed. 
 
-## Log-Transformed Quadratic Time Trend Model
-```{r fig.height=10}
-par(mfrow = c(3, 1))
-co2.ts.lm.log = lm(log(co2) ~ time(co2) )
-summary(co2.ts.lm.log)
-qqPlot(co2.ts.lm.log$residuals, 
-    main = expression("Linear Log Model log(co2) ~ time(co2)"))
-plt.acf = acf(co2.ts.lm.log$residuals, plot = FALSE)
-plt.pacf = pacf(co2.ts.lm.log$residuals, plot = FALSE)
-plot(plt.acf, main = expression("ACF - Linear Log Model log(co2) ~ time(co2)"))
-plot(plt.pacf, 
-     main = expression("PACF - Linear Log Model log(co2) ~ time(co2)"))
-```
+The ACF and PACF plots do not resemble those of white noise, suggesting poor model fit, and show evidence of autocorrelation in the residuals. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$) - meaning that we fail to reject the null hypothesis that the residuals are correlated. 
 
 ## Seasonal Time-Trend Model
 ```{r fig.height=10}
@@ -297,17 +273,11 @@ plt.acf = acf(co2.ts.lm.stt$residuals, plot = FALSE)
 plt.pacf = pacf(co2.ts.lm.stt$residuals, plot = FALSE)
 plot(plt.acf, main = expression("ACF - Quadratic Time Trend Model with 12 Seasonal Components"))
 plot(plt.pacf, main = expression("PACF - Quadratic Time Trend Model with 12 Seasonal Components"))
-```
-
-## Ljung-Box Tests for Autocorrelation
-```{r}
-Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
-Box.test(co2.ts.lm.quad$residuals, type="Ljung-Box")
-Box.test(co2.ts.lm.log$residuals, type="Ljung-Box")
 Box.test(co2.ts.lm.stt$residuals, type="Ljung-Box")
 ```
+Based upon residual plots, the quadratic model with time and seasonal dummy variables appears to be a better fit. The residual tails are less skewed away from the qqline in the plot against the normal distribution. However, the ACF plot of the residuals, like those of the time linear model, show a trend not captured by our model - the majority of autocorrelations are significant and there is a gradual decay in values over the lags. The PACF shows fewer significant autocorrelations. Again, we find that the model fails the Ljung-Box test, indicating correlation in the residuals.
 
-The Ljung-Box tests for each model reject the null hypothesis that the data are independently distributed in favor of the alternative hypothesis that the data exhibit serial correlation. In other words, our model are mis-specified and miss important information in the data.
+Despite these inadequacies, the model predictions in the short term do not appear unreasonable, as seen in our forecast plot.
 
 **Part 3 (4 points)**
 
@@ -315,26 +285,49 @@ Following all appropriate steps, choose an ARIMA model to fit to this `co2` seri
 
 ## SARIMA Model Selection
 ```{r fig.height=10}
-par(mfrow = c(2, 1))
 
-co2.sarima = arima(co2, order = c(2,1,2), seas = list(order=c(2,1,0), frequency(co2)), method = "CSS")
+# Find the number of seasonal and non-seasonal differences needed for stationarity
+# 1 non-seasonal difference and 0 seasonal differences are required
+unitroot_ndiffs(co2)
+unitroot_nsdiffs(co2)
 
-co2.sarima.aic <- -2 * co2.sarima$loglik + 2 * (length(co2.sarima$coef)+1)
-co2.sarima.aic
+# Plot the residuals, ACF, and PACF of the first-differenced series
+# The PACF chart has fewer repeated significant spikes at seasonal lags than the ACF does
+# so we'll use it for the seasonal part of the model in our initial estimate
+# The PACF only a seasonal spike at a lag of 12 - (1,0,0)
+# Since we used the PACF for the seasonal part, we'll estimate the non-seasonal with the ACF
+# The first 2 autocorrelations in the ACF are significant, so we'll estimate an MA(2)
+tsdisplay(difference(co2), main = "Non-Seasonal 1st Difference")
+
+# Create an Arima model based upon our observations
+co2.sarima = arima(co2, order = c(0,1,2), seas = list(order=c(1,0,0), 
+                                                      frequency(co2)), method = "CSS")
+
+# Find the AIC of the Arima model, check the residuals, and perform Ljung-Box
+co2.sarima.aicc <- -2 * co2.sarima$loglik + log(length(co2) + 1)*(length(co2.sarima$coef))
+co2.sarima.aicc
+
+# Look at the estimated coefficients
 summary(co2.sarima)
-hist(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
-plot(co2.sarima$residuals, main = "SARIMA (2,1,2) (1,0,0)")
-
-plt.acf = acf(co2.sarima$residuals, plot = FALSE)
-plt.pacf = pacf(co2.sarima$residuals, plot=FALSE)
-plot(plt.acf, main = "SARIMA (2,1,2) (1,0,0)")
-plot(plt.pacf,main = "SARIMA (2,1,2) (1,0,0)")
-
+# The histogram plot looks approximately normal
+hist(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+# A time series plot of the residuals appears to have a constant mean
+# The ACF and PACF plots still have a few significant autocorrelations
+tsdisplay(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+# However, the model passes the Ljung-Box test
 Box.test(co2.sarima$residuals, type="Ljung-Box")
+
+# Check the inverse unit roots for stationarity
+# The inverse unit roots are near non-stationarity
+autoplot(co2.sarima)
 ```
+To create our initial model, we first ran unit root tests to check the number of seasonal and non-seasonal differences required for stationarity. These tests returned $1$ non-seasonal difference and $0$ seasonal differences required, so we used these values as our d and D to estimate our initial Arima model. To obtain p, q, P, and Q, we took a first non-seasonal difference and plotted the ACF, PACF, and differenced values as a time series. The time series plot of the differenced values appeared relatively stationary. The ACF and PACF still showed evidence of autocorrelation. Since the PACF had fewer repeating seasonal lags, we used this plot to estimate the seasonal part of the Arima model. The PACF plot showed a significant autocorrelation at only the first seasonal lag, at $12$, so we estimated $(1,0,0)$ for the seasonal part of the model. For the non-seasonal part of the Arima model, the ACF showed significant autocorrelation at lags $1$ and $2$, so we estimated an MA model of order $2$, or $(0,1,2)$ for the non-seasonal component (with a difference of $1$ since we took $1$ non-seasonal difference). 
 
-#TODO: Add commentary on residual diagnostics for eyeball model
+The ACF and PACF plots of the residuals of this estimated model ($(0,1,2)(1,0,0)_{12}$) shows several significant autocorrelations (notably at $1$ year in the ACF and PACF and at $2$ years in the PACF), although the majority of values fall within the confidence interval for white noise values. 
 
+The Ljung-Box test shows a p-value $>0.05$, meaning that we reject the null hypothesis that the residuals are auto-correlated.
+
+Since the ACF and PACF plots still showed several strong autocorrelations and the plot of the inverse unit roots showed values near unity, we proceeded to iterate over model parameters to see if we could improve the AIC score and create a model with residuals that better approximated white noise.
 
 ## Model Selection Algorithm
 ```{r, message=FALSE, warning=FALSE}
@@ -363,128 +356,150 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
     df.results
 }
 
-arima.search <- get.best.arima(co2, maxord=c(4,2,4,4,2,4))
+arima.search <- get.best.arima(co2, maxord=c(2,2,2,2,2,2))
 ```
+
+To find a parsimonious seasonal Arima model that better fit the time series, we looped over values in the range of $0$ to $2$ for the parameters p, q, P, and Q. We also chose the range of $0$ to $2$ for the number of seasonal and non-seasonal differences, since differencing beyond order $2$ is rarely required. 
+
+For the best fit model, we chose to use the model with the lowest AICc, as seen in our table below (using AICc since it penalizes the model fit with increasing parameters and corrects for the bias in predictor selection introduced by AIC). As seen below, the best fitting model is $(0,1,1)(1,1,2)$.
 
 ```{r echo=FALSE, results='asis'}
 best10.arima <- head(arima.search[with(arima.search, order(AICc)),], n=10)
 row.names(best10.arima) <- NULL
 kable(best10.arima, caption='Top 10 Models.')
 ```
+```{r}
+# Estimate an Arima model with the parameters of the model with the lowest AICc
+# found from our parameter search
+pdqPDQ <- as.list(unlist(strsplit(best10.arima[1,1], '[[:space:]]')))
+p <- strtoi(pdqPDQ[[1]])
+d <- strtoi(pdqPDQ[[2]])
+q <- strtoi(pdqPDQ[[3]])
+P <- strtoi(pdqPDQ[[4]])
+D <- strtoi(pdqPDQ[[5]])
+Q <- strtoi(pdqPDQ[[6]])
 
-### TODO: Start with max order of 2 ARIMA, evaluate residuals, if white noise discuss
+# Estimate the model
+co2.sarima.2 <- arima(co2, order=c(p,d,q),
+                      seasonal = list(order=c(P,D,Q)), 
+                      method="CSS")
 
-### Then show best model up to 3 or 4 orders
+# Inspect the residual plots and find the estimated AICc
+sarima2.aicc <- -2 *co2.sarima.2$loglik + (log(length(co2))+1) * length(co2.sarima.2$coef)
+hist(residuals(co2.sarima.2))
+tsdisplay(co2.sarima.2$residuals, main = {toString(pdqPDQ)})
+sarima2.aicc
+Box.test(co2.sarima.2$residuals, type="Ljung-Box")
+autoplot(co2.sarima.2)
+```
+The AICc value is smaller than that of our initial model estimate, and the majority of ACF and PACF values fall within the $95\%$ confidence interval bounds for white noise. In addition, the Ljung-Box test indicates that the data are independently distributed since we fail to reject the null hypothesis. 
 
-Model selection criteria will be AICc.
+The histogram of the residuals shows them to be approximately normally distributed and the plot of the residuals as a time series resembles white noise.
+
+Since this model has a lower AICc than our initial estimate, the residuals resemble white noise, and we have not found significant evidence of residual autocorrelation, we proceed with using this model in our forecast. As seen in the plots of the inverse unit roots, the absolute value of the inverse unit roots are less than unity, meaning that the residuals are stationary.
 
 ## Best Model Forecasts
 ```{r}
-co2.forecast <- forecast(co2.sarima, 284)
-co2.forecast.summary = summary(co2.forecast)
+co2.forecast <- forecast(co2.sarima.2, 284)
+co2_forecast_ts <- co2.forecast[4]$mean
 plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
-col.main = "darkgreen") 
-
+col.main = "darkgreen")
 ```
 
 **Part 4 (5 points)**
 
-The file `co2_weekly_mlo.txt` contains weekly observations of atmospheric carbon dioxide concentrations measured at the Mauna Loa Observatory from 1974 to 2020, published by the National Oceanic and Atmospheric Administration (NOAA). Convert these data into a suitable time series object, conduct a thorough EDA on the data, addressing the problem of missing observations and comparing the Keeling Curve's development to your predicitons from Parts 2 and 3. Use the weekly data to generate a month-average series from 1997 to the present and use this to generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3. 
+The file `co2_weekly_mlo.txt` contains weekly observations of atmospheric carbon dioxide concentrations measured at the Mauna Loa Observatory from 1974 to 2020, published by the National Oceanic and Atmospheric Administration (NOAA). Convert these data into a suitable time series object, conduct a thorough EDA on the data, addressing the problem of missing observations and comparing the Keeling Curve's development to your predictions from Parts 2 and 3. Use the weekly data to generate a month-average series from 1997 to the present and use this to generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3. 
 
 ```{r, message=FALSE, warning=FALSE}
-library(naniar)
-library(imputeTS)
-
 co2_weekly <- read.table("co2_weekly_mlo.txt", header = FALSE)
 colnames(co2_weekly) <- c("year", "month", "day", "decimal", "ppm", "days", 
                           "1yr_ago", "10yrs_ago", "since1800")
 summary(co2_weekly)
-
-co2_weekly <- co2_weekly %>% mutate(ppm = ifelse(test = (ppm <= 0), NA,
-                                                   no=ppm))
-
-co2_weekly <- co2_weekly %>% na_interpolation(ppm)
-
-co2_weekly <-ts(co2_weekly$ppm, start=c(1974,5), end=c(2021,6), frequency = 52)
-
-co2_weekly <- as_tibble(co2_weekly)
-
-## TODO (EDDIE): ARIMA Imputation
-
+describe(co2_weekly)
 ```
 
-NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 with 10 variables. Variable `PPM` tracks weekly co2 presence.  We will be using `PPM` values for our analysis. Author uses -999 as missing value and we have 18 observation that have `PPM` value as a null, we will fill them in before developing time series model.
+NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 with 10 variables. Variable `ppm` tracks weekly co2 presence.  We will be using `ppm` values for our analysis. It appears that NOAA uses -999 to represent missing values. For `ppm`, there are 18 observations missing. and we have 18 observations that have `ppm` value as a null, we will fill them in before developing time series model.
+
+
+## Impute Missing Values Linearly
+```{r, message=FALSE, warning=FALSE}
+
+co2_weekly <- co2_weekly %>% mutate(ppm = ifelse(test = (ppm <= 0), NA, no=ppm))
+co2_weekly2 <- data.frame(lapply(co2_weekly, 
+                  function(X) approxfun(seq_along(X), X)(seq_along(X))))
+par(mfrow = c(2, 1))
+plot(co2_weekly$ppm[1:200], type="l", 
+     xlab="Weeks", ylab="co2", main="First 200 Weeks of Raw Data")
+plot(co2_weekly2$ppm[1:200], type="l", col="red", 
+     xlab="Weeks", ylab="co2", main="Linearly Interpolate Missing Values")
+```
+
+After careful observation of the data, most of the missing points are spread out across the data set (i.e. we do not need to impute 18 weeks in a row). As a result, we suggest it is reasonable to simply interpolate the missing values linearly. The plot above shows the first 200 weeks of the original data series with missing data and a new time series with missing values imputed. 
 
 ```{r, message=FALSE, warning=FALSE}
-# Get monthly averages for replacement after removing NA or -999  
-co2.noaa.month.df <- co2_weekly %>% 
-                       filter(ppm >0) %>% 
+# Get monthly averages for replacement after imputing missing values
+co2_monthly <- co2_weekly2 %>% 
                        group_by(year, month) %>% 
                        summarise(ppm_month_avg = mean(ppm))
 
-## TODO:  Linearly interpolate for Dec 1975
-
 # join to add monthly averages 
-co2.noaa.imputed.df <- merge(co2_weekly, co2.noaa.month.df, by = c('year','month'))
+co2_merged <- merge(co2_weekly2, co2_monthly, by = c('year','month'))
 
-# Calculate imputed value
-co2.noaa.imputed.df <- co2.noaa.imputed.df %>% 
-                                  mutate(ppm_imputed = ifelse(test = (ppm <= 0), ppm_month_avg,
-                                                   no=ppm))
+# Create weekly time series               
+co2_noaa_weekly_ts <- ts(co2_merged$ppm, start=c(1974), frequency=52)
 
-                
-co2.noaa.ts <- ts(co2.noaa.imputed.df$ppm_imputed, start=c(1959), frequency=52)
+# Plot weekly time series
+plot(co2_noaa_weekly_ts, 
+   main = "Weekly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974 to 2021", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue")
+```
 
-
-
-plot(co2.noaa.ts, 
-   main = "With imputed values for missing vales Weekly series 
-           CO2 Presence in air (1959 - 1997)", 
-     xlab = "Year", ylab = "Co2 ppm", col="blue", cex.main=0.5)
-
-
+```{r, message=FALSE, warning=FALSE}
 #Calculate monthly averages as our forecast is only on monthly basis
-co2.noaa.month.imputed.df <- co2.noaa.imputed.df %>% 
+co2_noaa_monthly_df <- co2_merged %>% 
                        group_by(year, month) %>% 
-                       summarise(ppm_month_avg = mean(ppm_imputed))
+                       summarise(ppm_month_avg = mean(ppm))
+summary(co2_noaa_monthly_df)
 
-summary(co2.noaa.month.imputed.df)
-co2.noaa.month.ts <- ts(co2.noaa.imputed.df$ppm_imputed, start=c(1959), 
+# Create monthly ts object (all observations)
+co2_noaa_monthly_ts <- ts(co2_noaa_monthly_df$ppm_month_avg, start=c(1974), 
                        frequency=12)
 
-autoplot(co2.noaa.month.ts,
-      main = "NOAA data With imputed values for missing vales 
-         Monthly series\n CO2 Presence in air (1959 - 1997)", 
+# Plot monthly time series
+plot(co2_noaa_monthly_ts, 
+   main = "Monthly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974 to 2021", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
+```
 
+The monthly time series plotted above looks like a smoothed version of the weekly time series. 
+```{r, message=FALSE, warning=FALSE}
 
 #transforming time series data to dataframe, so that we can join
-co2.forecast.df <- data.frame(floor(as.numeric(time(co2.forecast.summary[4]$mean))),
-                             cycle(time(co2.forecast.summary[4]$mean)), co2.forecast.summary[4]$mean)
+co2_actuals_filtered <- co2_noaa_monthly_df %>%
+                              filter(year > 1997)
 
-colnames(co2.forecast.df) <- c("year", "month", "ppm.forecast")
+co2_actuals_ts <- ts(co2_actuals_filtered$ppm_month_avg, start=c(1998), 
+                       frequency=12)
 
-co2.noaa.forecast.merged <- merge( co2.noaa.month.imputed.df, co2.forecast.df, all.x=TRUE)
-
-co2.noaa.forecast.merged<-
-    co2.noaa.forecast.merged %>%
-          mutate(year.month = paste(year, ".", month))
-
-forecst.df.filtered = co2.noaa.forecast.merged %>%
-                      filter(year > 1997)
-ggplot(data = forecst.df.filtered, aes(x=year, month)) +
-  geom_line(aes(y= ppm_month_avg), colour="blue") +
-  geom_line(aes(y= ppm.forecast), colour = "green")
-
-
-sarima.forecast = predict(object=co2.sarima, new_data=co2.noaa.month.imputed.df)
-
-# Calc the diff between forecasts and imputed actuals then sum of squares
-
+ts.plot(co2_actuals_ts, co2_forecast_ts, lty=1:2,
+        col=c("navy", "blue"),
+        ylab="CO2 (ppm)",
+        main="SARIMA(0,1,1,1,1,2) Forecasts vs. Actual Monthly CO2 Levels" 
+        )
+legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
 ```
-In the above code, we imputed missing values by using monthly average for that period and above graph looks good with imputed values
 
-# TODO: Generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3
+
+```{r, message=FALSE, warning=FALSE}
+actuals_fore_diff <- co2_actuals_ts - co2_forecast_ts
+
+ts.plot(actuals_fore_diff, lty=2,
+        col=c("blue"),
+        ylab="CO2 (ppm)",
+        main="Difference between Actual CO2 Levels and Forecasted Levels" 
+        )
+```
+The difference between the actual measured CO2 levels from 1998 to present and our forecasts is stark. It is clear from the plot above that we underestimated the growth of the series over the subsequent 20+ years. Given that our best model's residuals were stationary and resembled to white noise, we would conclude that the forecast error was not necessarily due to a model misspecification, but rather a change in the underlying CO2 generating process. We hypothesize this could be due to the rapid growth of China's economy and other emerging market economies through the 2000s and 2010s^[https://climateactiontracker.org/countries/china/]. This could be the subject of a deeper, causal understanding of what is driving the ever-increasing concentrations of atmospheric CO2. 
 
 
 **Part 5 (5 points)**
