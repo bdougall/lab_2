@@ -403,8 +403,13 @@ D <- strtoi(pdqPDQ[[5]])
 Q <- strtoi(pdqPDQ[[6]])
 
 # Estimate the model
+# co2.sarima.2 <- arima(co2, order=c(p,d,q),
+#                       seasonal = list(order=c(P,D,Q)), 
+#                       method="CSS")
+
 co2.sarima.2 <- arima(co2, order=c(p,d,q),
                       seasonal = list(order=c(P,D,Q)), 
+                      xreg = time(co2)^2,
                       method="CSS")
 
 ```
@@ -433,7 +438,9 @@ Since this model has a lower AICc than our initial estimate, the residuals resem
 
 ## Best Model Forecasts
 ```{r}
-co2.forecast <- forecast(co2.sarima.2, 284)
+# co2.forecast <- forecast(co2.sarima.2, 284)
+newxreg = rep(c(max(time(co2)^2)),each=284)
+co2.forecast <- forecast(co2.sarima.2,  newxreg = newxreg ,284)
 co2_forecast_ts <- co2.forecast[4]$mean
 plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
 col.main = "darkgreen")
