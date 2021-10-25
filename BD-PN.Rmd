@@ -229,10 +229,8 @@ hist(co2, main = "Histogram: CO2 Presence in air \n 1959 - 1997")
 hist(co2.bothdiff, 
 main = "Histogram: CO2 Presence in air\n after AR and seasonal difference")
 
-
-
 ```
-Histogram after applying seasonal and regressive difference looks close to Gaussian distribution. 
+Histogram after applying seasonal and regressive difference looks more like a Gaussian distribution. 
 
 **Part 2 (3 points)**
 
@@ -252,11 +250,36 @@ plot(plt.acf,  main = expression("ACF - Linear Model co2 ~ time(co2) "))
 plot(plt.pacf,  main = expression("PACF - Linear Model co2 ~ time(co2) "))
 Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
 ```
-Because the variance around the trend line appeared constant, we chose not to take the log of the values of our time series observations. 
+After fitting a time-trend model, we performed several checks to assess model fit. As seen above, the plot of the residuals against the normal distribution shows skewing in the tails, suggesting that the linear model residuals are not normally distributed. 
 
-After fitting a linear model of time, we performed several checks to assess model fit. As seen above, the plot of the residuals against the normal distribution shows skewing in the tails, suggesting that the linear model residuals are not normally distributed. 
+The ACF and PACF plots show evidence of autocorrelation in the residuals. This suggests poor model fit and clustering of errors, which would underestimate standard errors of the coefficients. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$) - meaning that we reject the null hypothesis that the residuals are independently distributed.  
 
-The ACF and PACF plots do not resemble those of white noise, suggesting poor model fit, and show evidence of autocorrelation in the residuals. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$) - meaning that we fail to reject the null hypothesis that the residuals are correlated. 
+## Log Transformation of CO2 Levels
+
+```{r, message=FALSE, warning=FALSE}
+par(mfrow=c(2,1))
+plot(co2, main="CO2 Levels")
+plot(log(co2), main="Log-Transformed CO2 Levels")
+```
+
+At first glance, the log-transformed series appears very similar to the raw series. Also, the raw monthly CO2 series does not appear to exhibit increasing variance through time, which suggests that a log-transformation is not necessary. We will continue to fit a log-transformed time trend model. 
+
+```{r, message=FALSE, warning=FALSE}
+log.fit <- lm(log(co2) ~ time(co2) + I(time(co2)^2))
+summary(log.fit)
+```
+```{r, message=FALSE, warning=FALSE}
+# Residual Diagnostics
+summary(log.fit$resid)
+par(mfrow=c(2,2))
+plot(log.fit$resid, type="l", main="Residuals: t-plot")
+hist(log.fit$resid)
+acf(log.fit$resid, main="ACF of the Residual Series")
+pacf(log.fit$resid, main="PACF of the Residual Series")
+Box.test(residuals(log.fit), lag=12, type="Ljung")
+```
+
+The residuals are highly correlated and show evidence of seasonality in the ACF plot. The Ljung-Box test supports the ACF plot by rejecting the null hypothesis that the series is independently distributed in favor of the alternative hypothesis that the series exhibits serial correlation. Since the variance appears constant through time as stated earlier, we will not log-transform the series going forward. 
 
 ## Seasonal Time-Trend Model
 ```{r fig.height=10}
@@ -265,7 +288,7 @@ co2.df = data.frame(ppm = c(co2), time = c(time(co2)))
 co2.df$season = as.factor(cycle(co2))
 
 par(mfrow = c(3, 1))
-co2.ts.lm.stt = lm(ppm ~ time  + I(time(co2)^2) + season, data = co2.df)
+co2.ts.lm.stt = lm(ppm ~ 0 + time  + I(time^2) + season, data = co2.df)
 summary(co2.ts.lm.stt)
 qqPlot(co2.ts.lm.stt$residuals, 
     main = expression("Quadratic Time Trend Model with 12 Seasonal Components"))
@@ -275,9 +298,24 @@ plot(plt.acf, main = expression("ACF - Quadratic Time Trend Model with 12 Season
 plot(plt.pacf, main = expression("PACF - Quadratic Time Trend Model with 12 Seasonal Components"))
 Box.test(co2.ts.lm.stt$residuals, type="Ljung-Box")
 ```
-Based upon residual plots, the quadratic model with time and seasonal dummy variables appears to be a better fit. The residual tails are less skewed away from the qqline in the plot against the normal distribution. However, the ACF plot of the residuals, like those of the time linear model, show a trend not captured by our model - the majority of autocorrelations are significant and there is a gradual decay in values over the lags. The PACF shows fewer significant autocorrelations. Again, we find that the model fails the Ljung-Box test, indicating correlation in the residuals.
+Next, we fit a polynomial time trend model that incorporates seasonal dummy variables. Based upon residual plots, the quadratic model with time and seasonal dummy variables appears to be a better fit. The residual tails are closer to the quantiles of the normal distribution. However, the ACF plot of the residuals, like those of the linear time trend model, show a trend not captured by our model - the majority of autocorrelations are significant and there is a gradual decay in values over the lags. The PACF shows fewer significant autocorrelations. Again, we find that the model rejects the null hypothesis the Ljung-Box test, indicating aerial correlation in the residuals.
 
-Despite these inadequacies, the model predictions in the short term do not appear unreasonable, as seen in our forecast plot.
+Despite these inadequacies, the model predictions in the short term do not appear unreasonable, as seen in our forecast plots below.
+
+## Seasonal Time-Trend Model Predictions
+
+```{r, message=FALSE, warning=FALSE}
+new.t = seq(1998, len= (2021-1997)*12, by=1/12)
+new.season <- rep(1:12, (2021-1997))
+new.dat <- data.frame(time = new.t, season = as.factor(new.season))
+stt.preds <- ts(predict(co2.ts.lm.stt, new.dat), st=1998, fr=12)
+
+ts.plot(co2, stt.preds, lty=1,
+        col=c("navy", "blue"),
+        ylab="CO2 Levels (ppm)",
+        main="Seasonal Polynominal Time Trend Model Forecasts" 
+        )
+```
 
 **Part 3 (4 points)**
 
@@ -382,7 +420,7 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
 arima.search <- get.best.arima(co2, maxord=c(3,2,3,3,2,3))
 ```
 
-To find a parsimonious seasonal Arima model that better fit the time series, we looped over values in the range of $0$ to $2$ for the parameters p, q, P, and Q. We also chose the range of $0$ to $2$ for the number of seasonal and non-seasonal differences, since differencing beyond order $2$ is rarely required. 
+To find a parsimonious seasonal Arima model that better fits the time series, we looped over values in the range of $0$ to $2$ for the parameters p, q, P, and Q. We also chose the range of $0$ to $2$ for the number of seasonal and non-seasonal differences, since differencing beyond order $2$ is rarely required. 
 
 For the best fit model, we chose to use the model with the lowest AICc, as seen in our table below (using AICc since it penalizes the model fit with increasing parameters and corrects for the bias in predictor selection introduced by AIC). As seen below, the best fitting model is $(0,1,1)(1,1,2)$.
 
@@ -440,7 +478,7 @@ Since this model has a lower AICc than our initial estimate, the residuals resem
 ```{r}
 # co2.forecast <- forecast(co2.sarima.2, 284)
 newxreg = rep(c(max(time(co2)^2)),each=284)
-co2.forecast <- forecast(co2.sarima.2,  newxreg = newxreg ,284)
+co2.forecast <- forecast(co2.sarima.2,  newxreg = newxreg, 284)
 co2_forecast_ts <- co2.forecast[4]$mean
 plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
 col.main = "darkgreen")
