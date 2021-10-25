@@ -508,9 +508,93 @@ Split the NOAA series into training and test sets, using the final two years of 
 
 
 ```{r}
+# Extract the relevant time periods for training and testing
+train.df <- subset(co2_noaa_monthly_df, (year < 2019 & month >= 1) | (year == 2019 & month < 6))
+test.df <- subset(co2_noaa_monthly_df, (year == 2019 & month >= 6) | (year > 2019 & month >= 1))
 
-
+# Create a time series out of the training and testing observations
+# Since it's a monthly series, use a frequency of 12
+train.ts <- ts(train.df$ppm_month_avg, start = c(1974, 5), 
+               end = c(2019, 5), 
+               frequency = 12)
+test.ts <- ts(train.df$ppm_month_avg, start = c(2019, 6), 
+              end = c(2021, 6), 
+              frequency = 12)
 ```
+```{r}
+
+# The time series exhibits an upward trend and seasonality
+plot(train.ts)
+
+# Use additive decomposition, since the magnitude of the seasonal fluctuation doesn't appear to vary
+# by time series level
+plot(decompose(train.ts))
+
+# Plot the autocorrelation of the training data
+# The ACF exhibits strong persistent autocorrelation, indicative of an underlying trend
+acf(train.ts, main = "")
+# The PACF cuts to 0 after 1 lag
+pacf(train.ts, main = "")
+
+# Find the number of seasonal and non-seasonal differences for stationarity
+# 0 seasonal differences are required, but 1 non-seasonal difference
+unitroot_nsdiffs(train.ts)
+unitroot_ndiffs(train.ts)
+
+# Plot the ACF and PACF plots after 1 difference, and check for stationarity
+tsdisplay(difference(train.ts), main = "One Non-Seasonal Difference")
+
+# There are fewer repeated seasonal lags in the PACF (only 1 at 12)
+# so we'll use the PACF to estimate the seasonal part of the model (1,0,0)
+# There are 2 significant autocorrelations at lags 1 and 2 in the ACF, so we'll estimate (0,1,2)
+arima.mod1 <- arima(train.ts, order = c(0,1,2), seas = list(order=c(1,0, 0), 
+                                                      frequency(train.ts)), method = "CSS")
+
+# Look at the estimated coefficients
+summary(arima.mod1)
+# The histogram plot looks approximately normal
+hist(arima.mod1$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+# A time series plot of the residuals appears to have a constant mean
+# The ACF and PACF plots still have a few significant autocorrelations
+tsdisplay(arima.mod1$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+# However, the model passes the Ljung-Box test
+Box.test(arima.mod1$residuals, type="Ljung-Box")
+
+# Check the inverse unit roots for stationarity
+# The inverse unit roots are near non-stationarity
+autoplot(arima.mod1)
+
+# Minimize AICc 
+best.mod <- get.best.arima(train.ts, maxord=c(3,3,3,3,3,3))
+
+pdqPDQ.2 <- as.list(unlist(strsplit(best.mod[1,1], '[[:space:]]')))
+p.2 <- strtoi(pdqPDQ.2[[1]])
+d.2 <- strtoi(pdqPDQ.2[[2]])
+q.2 <- strtoi(pdqPDQ.2[[3]])
+P.2 <- strtoi(pdqPDQ.2[[4]])
+D.2 <- strtoi(pdqPDQ.2[[5]])
+Q.2 <- strtoi(pdqPDQ.2[[6]])
+
+# Estimate the model
+co2.sarima.3 <- arima(train.ts, order=c(p.2,d.2,q.2),
+                      seasonal = list(order=c(P.2,D.2,Q.2)), 
+                      method="CSS")
+
+# Inspect the residual plots and find the estimated AICc
+sarima3.aicc <- -2 *co2.sarima.3$loglik + (log(length(co2))+1) * length(co2.sarima.3$coef)
+hist(residuals(co2.sarima.3))
+tsdisplay(co2.sarima.3$residuals, main = {toString(pdqPDQ)})
+sarima3.aicc
+Box.test(co2.sarima.3$residuals, type="Ljung-Box")
+autoplot(co2.sarima.3)
+```
+
+
+
+
+
+
+
 
 
 
