@@ -250,6 +250,7 @@ plot(plt.acf,  main = expression("ACF - Linear Model co2 ~ time(co2) "))
 plot(plt.pacf,  main = expression("PACF - Linear Model co2 ~ time(co2) "))
 Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
 ```
+
 After fitting a time-trend model, we performed several checks to assess model fit. As seen above, the plot of the residuals against the normal distribution shows skewing in the tails, suggesting that the linear model residuals are not normally distributed. 
 
 The ACF and PACF plots show evidence of autocorrelation in the residuals. This suggests poor model fit and clustering of errors, which would underestimate standard errors of the coefficients. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$) - meaning that we reject the null hypothesis that the residuals are independently distributed.  

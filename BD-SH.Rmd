@@ -441,11 +441,10 @@ The histogram of the residuals shows them to be approximately normally distribut
 Since this model has a lower AICc than our initial estimate, the residuals resemble white noise, and we have not found significant evidence of residual autocorrelation, we proceed with using this model in our forecast. As seen in the plots of the inverse unit roots, the absolute value of the inverse unit roots are less than unity, meaning that the residuals are stationary.
 
 ## Best Model Forecasts
-```{r}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2.forecast <- forecast(co2.sarima.2, 284)
 co2_forecast_ts <- co2.forecast[4]$mean
-plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
-col.main = "darkgreen")
+plot(co2.forecast, main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
 ```
 
 **Part 4 (5 points)**
@@ -464,8 +463,7 @@ NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 wi
 
 
 ## Impute Missing Values Linearly
-```{r, message=FALSE, warning=FALSE}
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2_weekly <- co2_weekly %>% mutate(ppm = ifelse(test = (ppm <= 0), NA, no=ppm))
 co2_weekly2 <- data.frame(lapply(co2_weekly, 
                   function(X) approxfun(seq_along(X), X)(seq_along(X))))
@@ -478,7 +476,7 @@ plot(co2_weekly2$ppm[1:200], type="l", col="red",
 
 After careful observation of the data, most of the missing points are spread out across the data set (i.e. we do not need to impute 18 weeks in a row). As a result, we suggest it is reasonable to simply interpolate the missing values linearly. The plot above shows the first 200 weeks of the original data series with missing data and a new time series with missing values imputed. 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Get monthly averages for replacement after imputing missing values
 co2_monthly <- co2_weekly2 %>% 
                        group_by(year, month) %>% 
@@ -496,7 +494,7 @@ plot(co2_noaa_weekly_ts,
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 #Calculate monthly averages as our forecast is only on monthly basis
 co2_noaa_monthly_df <- co2_merged %>% 
                        group_by(year, month) %>% 
@@ -515,8 +513,7 @@ plot(co2_noaa_monthly_ts,
 
 The monthly time series plotted above looks like a smoothed version of the weekly time series. 
 
-```{r, message=FALSE, warning=FALSE}
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 #transforming time series data to dataframe, so that we can join
 co2_actuals_filtered <- co2_noaa_monthly_df %>%
                               filter(year > 1997)
@@ -533,9 +530,8 @@ legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2
 ```
 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 actuals_fore_diff <- co2_actuals_ts - co2_forecast_ts
-
 ts.plot(actuals_fore_diff, lty=2,
         col=c("blue"),
         ylab="CO2 (ppm)",
@@ -551,70 +547,85 @@ The difference between the actual measured CO2 levels from 1998 to present and o
 Split the NOAA series into training and test sets, using the final two years of observations as the test set. Fit an ARIMA model to the series following all appropriate steps, including comparison of how candidate models perform both in-sample and (psuedo-) out-of-sample. Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Extract the relevant time periods for training and testing
-train.df <- subset(co2_noaa_monthly_df, (year < 2019 & month >= 1) | (year == 2019 & month < 6))
-test.df <- subset(co2_noaa_monthly_df, (year == 2019 & month >= 6) | (year > 2019 & month >= 1))
+train.df <- subset(co2_noaa_monthly_df, (year < 2019 & month >= 1) | (year == 2019 & month <= 6))
+test.df <- subset(co2_noaa_monthly_df, (year == 2019 & month > 6) | (year > 2019 & month >= 1))
 
 # Create a time series out of the training and testing observations
 # Since it's a monthly series, use a frequency of 12
 train.ts <- ts(train.df$ppm_month_avg, start = c(1974, 5), 
-               end = c(2019, 5), 
+               end = c(2019, 6), 
                frequency = 12)
-test.ts <- ts(train.df$ppm_month_avg, start = c(2019, 6), 
-              end = c(2021, 6), 
+test.ts <- ts(test.df$ppm_month_avg, start = c(2019, 7), 
               frequency = 12)
 ```
 
 
 
-```{r}
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # The time series exhibits an upward trend and seasonality
-plot(train.ts)
+plot(train.ts, main="Training Series: NOAA Weekly Obsevations")
 
 # Use additive decomposition, since the magnitude of the seasonal fluctuation doesn't appear to vary
 # by time series level
 plot(decompose(train.ts))
+```
 
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Plot the autocorrelation of the training data
 # The ACF exhibits strong persistent autocorrelation, indicative of an underlying trend
+par(mfrow = c(2, 1))
 acf(train.ts, main = "")
 # The PACF cuts to 0 after 1 lag
 pacf(train.ts, main = "")
-
+```
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Find the number of seasonal and non-seasonal differences for stationarity
 # 0 seasonal differences are required, but 1 non-seasonal difference
 unitroot_nsdiffs(train.ts)
 unitroot_ndiffs(train.ts)
+```
 
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Plot the ACF and PACF plots after 1 difference, and check for stationarity
-tsdisplay(difference(train.ts), main = "One Non-Seasonal Difference")
+tsdisplay(diff(train.ts), main = "Training Series: One Non-Seasonal Difference")
+```
 
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # There are fewer repeated seasonal lags in the PACF (only 1 at 12)
 # so we'll use the PACF to estimate the seasonal part of the model (1,0,0)
 # There are 2 significant autocorrelations at lags 1 and 2 in the ACF, so we'll estimate (0,1,2)
-arima.mod1 <- arima(train.ts, order = c(0,1,2), seas = list(order=c(1,0, 0), 
+arima.mod1 <- arima(train.ts, order = c(0,1,1), seas = list(order=c(0,1,1), 
                                                       frequency(train.ts)), method = "CSS")
-
 # Look at the estimated coefficients
 summary(arima.mod1)
 # The histogram plot looks approximately normal
-hist(arima.mod1$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+
 # A time series plot of the residuals appears to have a constant mean
 # The ACF and PACF plots still have a few significant autocorrelations
 tsdisplay(arima.mod1$residuals, main = "SARIMA (0,1,2) (1,0,0)")
+
+hist(arima.mod1$residuals, main = "SARIMA (0,1,2) (1,0,0)")
 # However, the model passes the Ljung-Box test
 Box.test(arima.mod1$residuals, type="Ljung-Box")
 
 # Check the inverse unit roots for stationarity
 # The inverse unit roots are near non-stationarity
 autoplot(arima.mod1)
+```
 
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Minimize AICc 
 best.mod <- get.best.arima(train.ts, maxord=c(2,2,2,2,2,2))
+best10.mods <- head(best.mod[with(best.mod, order(AICc)),], n=10)
+row.names(best10.mods) <- NULL
+kable(best10.mods, caption='Top 10 Models.')
+```
 
-pdqPDQ.2 <- as.list(unlist(strsplit(best.mod[1,1], '[[:space:]]')))
+
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+pdqPDQ.2 <- as.list(unlist(strsplit(best10.mods[1,1], '[[:space:]]')))
 p.2 <- strtoi(pdqPDQ.2[[1]])
 d.2 <- strtoi(pdqPDQ.2[[2]])
 q.2 <- strtoi(pdqPDQ.2[[3]])
@@ -628,24 +639,79 @@ co2.sarima.3 <- arima(train.ts, order=c(p.2,d.2,q.2),
                       method="CSS")
 
 # Inspect the residual plots and find the estimated AICc
-sarima3.aicc <- -2 *co2.sarima.3$loglik + (log(length(co2))+1) * length(co2.sarima.3$coef)
-hist(residuals(co2.sarima.3))
-tsdisplay(co2.sarima.3$residuals, main = {toString(pdqPDQ)})
-sarima3.aicc
 Box.test(co2.sarima.3$residuals, type="Ljung-Box")
+
+sarima3.aicc <- -2 *co2.sarima.3$loglik + (log(length(co2))+1) * length(co2.sarima.3$coef)
+tsdisplay(co2.sarima.3$residuals, main = {toString(pdqPDQ.2)})
+sarima3.aicc
+hist(residuals(co2.sarima.3))
 autoplot(co2.sarima.3)
 ```
 
+## Best Model Forecasts
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+co2.forecast.24mo <- forecast(co2.sarima.3, 24) # 24 month forecast
+co2_forecast_ts24mo <- co2.forecast.24mo[4]$mean
+plot(co2.forecast.24mo, main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
+```
+
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+# Plot forecast vs. test data
+ts.plot(train.ts, co2.sarima.3$fit, lty=1:2,
+        col=c("navy", "blue"),
+        ylab="CO2 (ppm)",
+        main="SARIMA(0,1,1,0,1,1) Forecasts vs. In-Sample Monthly CO2 Levels" 
+        )
+legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
+```
+
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+# Plot forecast vs. test data
+ts.plot(test.ts, co2_forecast_ts24mo, lty=1:2,
+        col=c("navy", "blue"),
+        ylab="CO2 (ppm)",
+        main="SARIMA(0,1,1,0,1,1) Forecasts vs. Out-of-Sample Monthly CO2 Levels" 
+        )
+legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
+```
+
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+actuals_fore_diff2 <- test.ts - co2_forecast_ts24mo
+ts.plot(actuals_fore_diff2, lty=2,
+        col=c("blue"),
+        ylab="CO2 (ppm)",
+        main="Difference between Actual CO2 Levels and Forecasted Levels" 
+        )
+```
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+# Function that returns Root Mean Squared Error
+rmse <- function(error)
+{
+    sqrt(mean(error^2))
+}
+ 
+# Function that returns Mean Absolute Error
+mae <- function(error)
+{
+    mean(abs(error))
+}
+
+rmse(co2.sarima.3$residuals)
+rmse(actuals_fore_diff2)
+mae(co2.sarima.3$residuals)
+mae(actuals_fore_diff2)
+
+```
+
+Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
 
 
-
-
-
-
-
-
-
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+mo_to_forecast <- (2100 - 2021)*12 + 6
+co2.forecast.2100 <- forecast(co2.sarima.3, mo_to_forecast) # 24 month forecast
+co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
+plot(co2.forecast.2100, main = "CO2 Forecasts through 2100")
+```
 
 
 
