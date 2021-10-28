@@ -389,12 +389,13 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
       {
         tryCatch(
         {
-          fit <- arima(x.ts, order=c(p,d,q),
-                             seas = list(order=c(P,D,Q), frequency(x.ts)))
-          
+           fit <- arima(x.ts, order=c(p,d,q),
+                               seas = list(order=c(P,D,Q), frequency(x.ts)), 
+                                 method = 'ML')
+
           npar <- length(fit$coef[fit$mask]) + 1
           nstar <- length(fit$residuals) - fit$arma[6] - fit$arma[7] * fit$arma[5]
-  
+
           # consistent AIC
           # fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
           # regular AIC
@@ -404,7 +405,7 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
           # fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
           fit.bic <- fit.aic + npar * (log(nstar) - 2)
           fit.aicc <- fit.aic + 2 * npar * (nstar/(nstar - npar - 1) - 1)
-          
+
           df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
                            AIC= fit.aic, BIC= fit.bic)
           df.results <- rbind(df.results, df)
@@ -417,8 +418,31 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
     # list(best.aic, best.fit, best.model)
     df.results
 }
-
-arima.search <- get.best.arima(co2, maxord=c(3,2,3,3,2,3))
+get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
+{
+    best.aic <- 1e8
+    df.results = data.frame()
+    n<-length(x.ts)
+    for(p in 0:maxord[1]) for(d in 0:maxord[2]) for(q in 0:maxord[3])
+      for(P in 0:maxord[4]) for(D in 0:maxord[5]) for(Q in 0:maxord[6])
+      {
+        fit <- arima(x.ts, order=c(p,d,q),
+                           seas = list(order=c(P,D,Q), frequency(x.ts)),
+                           method="CSS")
+        # consistent AIC
+        fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
+        # regular AIC
+        fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
+        # BIC
+        fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
+        df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
+                         AIC= fit.aic, BIC= fit.bic)
+        df.results <- rbind(df.results, df)
+      }
+    # list(best.aic, best.fit, best.model)
+    df.results
+}
+arima.search <- get.best.arima(co2, maxord=c(2,2,2,2,2,2))
 ```
 
 To find a parsimonious seasonal Arima model that better fits the time series, we looped over values in the range of $0$ to $2$ for the parameters p, q, P, and Q. We also chose the range of $0$ to $2$ for the number of seasonal and non-seasonal differences, since differencing beyond order $2$ is rarely required. 
@@ -443,14 +467,19 @@ Q <- strtoi(pdqPDQ[[6]])
 
 # Estimate the model
 # co2.sarima.2 <- arima(co2, order=c(p,d,q),
-#                       seasonal = list(order=c(P,D,Q)), 
+#                       seasonal = list(order=c(P,D,Q)),
 #                       method="CSS")
 
+time.diff.sq = data.frame(tim.squre = (time(co2) - min(time(co2)))^2)
 co2.sarima.2 <- arima(co2, order=c(p,d,q),
-                      seasonal = list(order=c(P,D,Q)), 
-                      xreg = time(co2)^2,
-                      method="CSS")
+                      seasonal = list(order=c(P,D,Q)),
+                      xreg = time.diff.sq$square,
+                      method="ML")
 
+co2.sarima.2 <- auto.arima(co2,
+                      xreg = time.diff.sq$square,
+                      method="ML")
+summary(co2.sarima.auto)
 ```
 **Our best `sarima` model can be expressed as below**    
   $$(1-B)(1-B)^{12} x_t = (1+\theta_1B + \theta_{12}B^{12} + \theta_{13}B^{13} )w_t $$
@@ -478,8 +507,8 @@ Since this model has a lower AICc than our initial estimate, the residuals resem
 ## Best Model Forecasts
 ```{r}
 # co2.forecast <- forecast(co2.sarima.2, 284)
-newxreg = rep(c(max(time(co2)^2)),each=284)
-co2.forecast <- forecast(co2.sarima.2,  newxreg = newxreg, 284)
+pred_reg = data.frame(time.square = rep((max(time(co2) - min(time(co2))^2)),each = 288))
+co2.forecast <- forecast(co2.sarima.2,  xreg = pred_reg$time.square, 288)
 co2_forecast_ts <- co2.forecast[4]$mean
 plot(co2.forecast, main = "SARIMA Model - CO2 present in air(ppm) forecasting",
 col.main = "darkgreen")
@@ -587,17 +616,16 @@ Split the NOAA series into training and test sets, using the final two years of 
 
 
 ```{r}
-co2.noaa.training <-  co2_noaa_monthly_df %>% filter(year <= 2019) 
-co2.6months.data <-  co2.noaa.training %>% filter(year == 2019 & month > 6)
-co2.noaa.training <- co2.noaa.training %>% anti_join(co2.6months.data, by=c("year", "month"))
-co2.noaa.test <- co2_noaa_monthly_df %>% filter(year > 2019)
-co2.noaa.test <- co2.noaa.test %>% union_all(co2.6months.data)
 
-co2.noaa.training.ts = ts(co2.noaa.training$ppm_month_avg, start=c(1974,5), 
-                       frequency=12)
+train.df <- subset(co2_noaa_monthly_df, (year < 2019 & month >= 1) | (year == 2019 & month <= 6))
+test.df <- subset(co2_noaa_monthly_df, (year == 2019 & month > 6) | (year > 2019 & month >= 1))
 
-co2.noaa.test.ts = ts(co2.noaa.test$ppm_month_avg, start=c(2019,7), 
-                       frequency=12)
+co2.noaa.training.ts <- ts(train.df$ppm_month_avg, start = c(1974, 5), 
+               end = c(2019, 6), 
+               frequency = 12)
+co2.noaa.test.ts <- ts(test.df$ppm_month_avg, start = c(2019, 7), 
+              frequency = 12)
+
 
 plot(co2.noaa.training.ts)
 plot(co2.noaa.test.ts)
@@ -611,8 +639,9 @@ pacf(co2.noaa.training.ts)
 ```
 
 ```{r}
-noaa.arima.search <- get.best.arima(co2.noaa.training.ts, maxord=c(3,2,3,3,2,3))
-best10.arima <- head(arima.search[with(noaa.arima.search, order(AICc)),], n=10)
+noaa.arima.search <- get.best.arima(co2.noaa.training.ts, maxord=c(2,2,2,2,2,2))
+best10.arima <- head(noaa.arima.search[with(noaa.arima.search, order(AICc)),], n=10)
+
 row.names(best10.arima) <- NULL
 kable(best10.arima, caption='Top 10 Models.')
 ```
