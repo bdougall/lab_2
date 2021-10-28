@@ -464,9 +464,49 @@ NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 wi
 
 ## Impute Missing Values Linearly
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
+co2_weekly_unmut=co2_weekly
 co2_weekly <- co2_weekly %>% mutate(ppm = ifelse(test = (ppm <= 0), NA, no=ppm))
 co2_weekly2 <- data.frame(lapply(co2_weekly, 
                   function(X) approxfun(seq_along(X), X)(seq_along(X))))
+
+#get num missing by counting negative values in vector
+get_num_missing=function(v) {
+  neg_ind=v<0
+  num_neg=sum(neg_ind)
+  return(num_neg)
+}
+
+#get index of first missing (first
+#index of negative value)
+getIndexOfFirstMissing=function(v) {
+  f_res=which(v<=0)
+  #head(f_res)
+  f_res=as.vector(f_res)
+  return(f_res[1])
+}
+
+#co2_weekly2=co2_weekly
+num_missing=get_num_missing(co2_weekly_unmut$ppm)
+print(paste("num missing is ",num_missing))
+num_loop=0
+while(num_missing>0) {
+ num_loop=num_loop+1
+ idx_first_missing=getIndexOfFirstMissing(co2_weekly_unmut$ppm)
+ time_at_missing_idx=co2_weekly_unmut[idx_first_missing-1,"decimal"]
+ input_arima=co2_weekly_unmut[1:(idx_first_missing-1),]
+ input_arima=input_arima[,c("decimal","ppm")]
+ input_arima_ts=ts(input_arima$ppm,frequency=52,start=c(1974,20))
+ the_model=arima(input_arima_ts,order=c(2,1,2))
+ predicted_obj=predict(the_model)
+ predicted_value=as.numeric(predicted_obj[1])
+ co2_weekly_unmut[idx_first_missing,"ppm"]=predicted_value
+ num_missing=get_num_missing(co2_weekly_unmut$ppm)
+}
+
+co2_weekly2 <- data.frame(lapply(co2_weekly_unmut, 
+                  function(X) approxfun(seq_along(X), X)(seq_along(X))))
+
+
 par(mfrow = c(2, 1))
 plot(co2_weekly$ppm[1:200], type="l", 
      xlab="Weeks", ylab="co2", main="First 200 Weeks of Raw Data")
@@ -521,12 +561,15 @@ co2_actuals_filtered <- co2_noaa_monthly_df %>%
 co2_actuals_ts <- ts(co2_actuals_filtered$ppm_month_avg, start=c(1998), 
                        frequency=12)
 
+#co2_actuals_ts is from part 4
+#co2_forecast_ts is from part 3 forecast
 ts.plot(co2_actuals_ts, co2_forecast_ts, lty=1:2,
         col=c("navy", "blue"),
         ylab="CO2 (ppm)",
         main="SARIMA(0,1,1,1,1,2) Forecasts vs. Actual Monthly CO2 Levels" 
         )
 legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
+####################################################################
 ```
 
 
