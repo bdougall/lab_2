@@ -313,6 +313,7 @@ new.t = seq(1998, len= (2021-1997)*12, by=1/12)
 new.season <- rep(1:12, (2021-1997))
 new.dat <- data.frame(time = new.t, season = as.factor(new.season))
 stt.preds <- ts(predict(co2.ts.lm.stt, new.dat), st=1998, fr=12)
+stt.preds.start <- ts(predict(co2.ts.lm.stt, new.dat), st=1974, fr=12)
 
 ts.plot(co2, stt.preds, lty=1,
         col=c("navy", "blue"),
@@ -425,6 +426,9 @@ Q <- strtoi(pdqPDQ[[6]])
 co2.sarima.2 <- arima(co2, order=c(p,d,q),
                       seasonal = list(order=c(P,D,Q)), 
                       method="CSS")
+co2.sarima.2.account_quad=arima(co2-stt.preds.start, order=c(p,d,q),
+                      seasonal = list(order=c(P,D,Q)), 
+                      method="CSS")
 
 # Inspect the residual plots and find the estimated AICc
 sarima2.aicc <- -2 *co2.sarima.2$loglik + (log(length(co2))+1) * length(co2.sarima.2$coef)
@@ -443,8 +447,11 @@ Since this model has a lower AICc than our initial estimate, the residuals resem
 ## Best Model Forecasts
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2.forecast <- forecast(co2.sarima.2, 284)
+co2.forecast.account_quad<-forecast (co2.sarima.2.account_quad,284)
 co2_forecast_ts <- co2.forecast[4]$mean
+co2_forecast_ts <-co2.forecast.account_quad[4]$mean
 plot(co2.forecast, main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
+
 ```
 
 **Part 4 (5 points)**
@@ -561,6 +568,7 @@ co2_actuals_filtered <- co2_noaa_monthly_df %>%
 co2_actuals_ts <- ts(co2_actuals_filtered$ppm_month_avg, start=c(1998), 
                        frequency=12)
 
+############################################
 #co2_actuals_ts is from part 4
 #co2_forecast_ts is from part 3 forecast
 ts.plot(co2_actuals_ts, co2_forecast_ts, lty=1:2,
