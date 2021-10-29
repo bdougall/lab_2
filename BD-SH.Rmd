@@ -84,7 +84,7 @@ library(zoo)
 
 Conduct a comprehensive Exploratory Data Analysis on the `co2` series. This should include (without being limited to) a thorough investigation of the trend, seasonal and irregular elements. 
 
-```{r fig.height=10}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=FALSE)
 
 str(co2)
@@ -140,8 +140,7 @@ From Figure4: Trend is abstracted after taking the 2-period difference of the ti
 From Figure5: Seasonality absent after applying difference of 12 lags for the season. We still see trends present.  
 From Figure6: Seasonality and trend are absent after difference at two lags and  12 lags for the season. It is much closer to white noise series with non-constant variance. It suggests a possible need of Seasonal adjustment for the ARIMA model
 
-```{r fig.height= 6.5}
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 autoplot(co2.decompose, main = "Decomposition of C02 Time Series")
 
 plot.acf.alldata = acf(co2, plot=FALSE)
@@ -211,8 +210,6 @@ plot(plot.acf.bothdiff, main = "ACF CO2 Presence in air \n AR and seasonal diffe
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n AR and seasonal differences", 
      xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
-
-
 ```
   
   Decomposition graph confirms the findings from EDA, trend and seasonality are present in the time series.  
@@ -222,15 +219,11 @@ plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n AR and seasonal dif
   * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. This confirms the need for seasonal and Integrated treatment for our model
 
 
-```{r fig.height= 4.5}
-
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 par(mfrow = c(1, 2))
 hist(co2, main = "Histogram: CO2 Presence in air \n 1959 - 1997")
 hist(co2.bothdiff, 
 main = "Histogram: CO2 Presence in air\n after AR and seasonal difference")
-
-
-
 ```
 Histogram after applying seasonal and regressive difference looks close to Gaussian distribution. 
 
@@ -239,7 +232,7 @@ Histogram after applying seasonal and regressive difference looks close to Gauss
 Fit a linear time trend model to the `co2` series, and examine the characteristics of the residuals. Compare this to a higher-order polynomial time trend model. Discuss whether a logarithmic transformation of the data would be appropriate. Fit a polynomial time trend model that incorporates seasonal dummy variables, and use this model to generate forecasts up to the present. 
 
 ## Linear Time Trend Model
-```{r fig.height=10}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # First fit a linear time trend model
 par(mfrow = c(3, 1))
 co2.ts.lm.linear = lm(co2 ~ time(co2) )
@@ -258,7 +251,7 @@ The ACF and PACF plots show evidence of autocorrelation in the residuals. This s
 
 ## Log Transformation of CO2 Levels
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 par(mfrow=c(2,1))
 plot(co2, main="CO2 Levels")
 plot(log(co2), main="Log-Transformed CO2 Levels")
@@ -266,12 +259,12 @@ plot(log(co2), main="Log-Transformed CO2 Levels")
 
 At first glance, the log-transformed series appears very similar to the raw series. Also, the raw monthly CO2 series does not appear to exhibit increasing variance through time, which suggests that a log-transformation is not necessary. We will continue to fit a log-transformed time trend model. 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 log.fit <- lm(log(co2) ~ time(co2) + I(time(co2)^2))
 summary(log.fit)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Residual Diagnostics
 summary(log.fit$resid)
 par(mfrow=c(2,2))
@@ -285,7 +278,7 @@ Box.test(residuals(log.fit), lag=12, type="Ljung")
 The residuals are highly correlated and show evidence of seasonality in the ACF plot. The Ljung-Box test supports the ACF plot by rejecting the null hypothesis that the series is independently distributed in favor of the alternative hypothesis that the series exhibits serial correlation. As mentioned earlier, since the variance appears constant through time, we will not log-transform the series going forward. 
 
 ## Seasonal Time-Trend Model
-```{r fig.height=10}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Add seasonal dummy to data.frame
 co2.df = data.frame(ppm = c(co2), time = c(time(co2)))
 co2.df$season = as.factor(cycle(co2))
@@ -308,7 +301,7 @@ Despite these inadequacies, the model predictions in the short term do not appea
 
 ## Seasonal Time-Trend Model Predictions
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 new.t = seq(1998, len= (2021-1997)*12, by=1/12)
 new.season <- rep(1:12, (2021-1997))
 new.dat <- data.frame(time = new.t, season = as.factor(new.season))
@@ -326,7 +319,7 @@ ts.plot(co2, stt.preds, lty=1,
 Following all appropriate steps, choose an ARIMA model to fit to this `co2` series. Discuss the characteristics of your model and how you selected between alternative ARIMA specifications. Use your model to generate forecasts to the present. 
 
 ## SARIMA Model Selection
-```{r fig.height=10}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 
 # Find the number of seasonal and non-seasonal differences needed for stationarity
 # 1 non-seasonal difference and 0 seasonal differences are required
@@ -381,18 +374,33 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
     for(p in 0:maxord[1]) for(d in 0:maxord[2]) for(q in 0:maxord[3])
       for(P in 0:maxord[4]) for(D in 0:maxord[5]) for(Q in 0:maxord[6])
       {
-        fit <- arima(x.ts, order=c(p,d,q),
-                           seas = list(order=c(P,D,Q), frequency(x.ts)), 
-                           method="CSS")
-        # consistent AIC
-        fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
-        # regular AIC
-        fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
-        # BIC
-        fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
-        df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
-                         AIC= fit.aic, BIC= fit.bic)
-        df.results <- rbind(df.results, df)
+        tryCatch(
+        {
+          fit <- arima(x.ts, order=c(p,d,q),
+                             seas = list(order=c(P,D,Q), frequency(x.ts)), 
+                                         method="ML")
+          
+          npar <- length(fit$coef[fit$mask]) + 1
+          nstar <- length(fit$residuals) - fit$arma[6] - fit$arma[7] * fit$arma[5]
+  
+          # consistent AIC
+          # fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
+          # regular AIC
+          fit.aic <- fit$aic
+          # fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
+          # BIC
+          # fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
+          fit.bic <- fit.aic + npar * (log(nstar) - 2)
+          fit.aicc <- fit.aic + 2 * npar * (nstar/(nstar - npar - 1) - 1)
+          
+          df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
+                           AIC= fit.aic, BIC= fit.bic)
+          df.results <- rbind(df.results, df)
+        },
+        error=function(cond) {
+            paste('[', p,',',d,',',q,']', '[', P,',',D,',',Q,']')
+        }
+        )
       }
     # list(best.aic, best.fit, best.model)
     df.results
@@ -405,12 +413,12 @@ To find a parsimonious seasonal Arima model that better fit the time series, we 
 
 For the best fit model, we chose to use the model with the lowest AICc, as seen in our table below (using AICc since it penalizes the model fit with increasing parameters and corrects for the bias in predictor selection introduced by AIC). As seen below, the best fitting model is $(0,1,1)(1,1,2)$.
 
-```{r echo=FALSE, results='asis'}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 best10.arima <- head(arima.search[with(arima.search, order(AICc)),], n=10)
 row.names(best10.arima) <- NULL
 kable(best10.arima, caption='Top 10 Models.')
 ```
-```{r}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Estimate an Arima model with the parameters of the model with the lowest AICc
 # found from our parameter search
 pdqPDQ <- as.list(unlist(strsplit(best10.arima[1,1], '[[:space:]]')))
@@ -451,7 +459,7 @@ plot(co2.forecast, main = "Best SARIMA Model - CO2 present in air(ppm) forecasti
 
 The file `co2_weekly_mlo.txt` contains weekly observations of atmospheric carbon dioxide concentrations measured at the Mauna Loa Observatory from 1974 to 2020, published by the National Oceanic and Atmospheric Administration (NOAA). Convert these data into a suitable time series object, conduct a thorough EDA on the data, addressing the problem of missing observations and comparing the Keeling Curve's development to your predictions from Parts 2 and 3. Use the weekly data to generate a month-average series from 1997 to the present and use this to generate accuracy metrics for the forecasts generated by your models from Parts 2 and 3. 
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2_weekly <- read.table("co2_weekly_mlo.txt", header = FALSE)
 colnames(co2_weekly) <- c("year", "month", "day", "decimal", "ppm", "days", 
                           "1yr_ago", "10yrs_ago", "since1800")
@@ -636,7 +644,7 @@ Q.2 <- strtoi(pdqPDQ.2[[6]])
 # Estimate the model
 co2.sarima.3 <- arima(train.ts, order=c(p.2,d.2,q.2),
                       seasonal = list(order=c(P.2,D.2,Q.2)), 
-                      method="CSS")
+                      method="ML")
 
 # Inspect the residual plots and find the estimated AICc
 Box.test(co2.sarima.3$residuals, type="Ljung-Box")
@@ -705,13 +713,11 @@ mae(actuals_fore_diff2)
 
 Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
 
-
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 mo_to_forecast <- (2100 - 2021)*12 + 6
 co2.forecast.2100 <- forecast(co2.sarima.3, mo_to_forecast) # 24 month forecast
 co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
 plot(co2.forecast.2100, main = "CO2 Forecasts through 2100")
 ```
-
 
 
