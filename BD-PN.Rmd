@@ -644,27 +644,38 @@ plot(forecasted.decompose$trend)
 ```
 
 ```{r}
-co2.ppm = c(diff(co2))
-noaa.prior1998.diff = c(diff(noaa.prior1998.ts))
-forecasted.diff = c(diff(forecasted.ts))
+co2.ppm = c(co2)
+noaa.prior1998.ppm = c(noaa.prior1998.ts)
+forecasted.ppm = c(forecasted.ts)
 
-max_ln <- max(c(length(co2.diff), length(noaa.prior1998.diff), 
-      length(forecasted.diff)) )
+max_ln <- max(c(length(co2.ppm), length(noaa.prior1998.ppm), 
+      length(forecasted.ppm)) )
 
-combined_diff<- data.frame(co2.diff = c(co2.diff,rep(NA, max_ln - length(co2.diff))),
-                      noaa.prior1998.diff = c(noaa.prior1998.diff,
-                          rep(NA, max_ln - length(noaa.prior1998.diff))),
-                      forecasted.diff = c(forecasted.diff,
-                          rep(NA, max_ln - length(forecasted.diff))))
+combined_ppm<- data.frame(co2.ppm = c(co2.ppm,rep(NA, max_ln - length(co2.ppm))),
+                      noaa.prior1998.ppm = c(noaa.prior1998.ppm,
+                          rep(NA, max_ln - length(noaa.prior1998.ppm))),
+                      forecasted.ppm = c(forecasted.ppm,
+                          rep(NA, max_ln - length(forecasted.ppm))))
 
 
-combined_diff$id <- row.names(combined_diff)
+combined_ppm$row_id <- row.names(combined_ppm)
 
-ggplot(data=combined_diff, aes(x=id)) +
-  geom_line(aes(y=co2.diff))
+par(mfrow = c(1, 3))
+plot(combined_ppm$row_id, combined_ppm$co2.ppm,  type = 'l')
+plot(combined_ppm$row_id, combined_ppm$noaa.prior1998.ppm,  type = 'l')
+plot(combined_ppm$row_id, combined_ppm$forecasted.ppm,  type = 'l')
+
 
 ```
 
+```{r}
+ggplot(data = combined_ppm, aes(x = row_id))+
+  geom_line(aes(y = co2.ppm), color = "darkred") +
+  geom_line(aes(y = noaa.prior1998.ppm), color="blue", 
+  linetype="twodash") +
+  geom_line(aes(y = forecasted.ppm), color="red", 
+  linetype="dashed")
+```
 
 ```{r}
 par(mfrow = c(1, 3))
