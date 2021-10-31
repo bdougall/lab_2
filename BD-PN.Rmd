@@ -658,7 +658,7 @@ combined_ppm<- data.frame(co2.ppm = c(co2.ppm,rep(NA, max_ln - length(co2.ppm)))
                           rep(NA, max_ln - length(forecasted.ppm))))
 
 
-combined_ppm$row_id <- row.names(combined_ppm)
+combined_ppm$row_id <- strtoi(row.names(combined_ppm))
 
 par(mfrow = c(1, 3))
 plot(combined_ppm$row_id, combined_ppm$co2.ppm,  type = 'l')
@@ -670,11 +670,12 @@ plot(combined_ppm$row_id, combined_ppm$forecasted.ppm,  type = 'l')
 
 ```{r}
 ggplot(data = combined_ppm, aes(x = row_id))+
-  geom_line(aes(y = co2.ppm), color = "darkred") +
+  geom_line(aes(y = co2.ppm), color = "black") +
   geom_line(aes(y = noaa.prior1998.ppm), color="blue", 
   linetype="twodash") +
   geom_line(aes(y = forecasted.ppm), color="red", 
-  linetype="dashed")
+  linetype="dashed") +
+  scale_color_manual(name = "Co2 series", values = c("Y1" = "darkblue", "Y2" = "red"))
 ```
 
 ```{r}
