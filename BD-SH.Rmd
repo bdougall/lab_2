@@ -544,9 +544,8 @@ while(num_missing>0) {
  # 1 difference (smallest?)
  # 1 MA (acf)
  # most parsimonious model? 1 1 2?
- best_model_params=get.best.arima.as.comp(input_arima_ts)
- best_model_params_order=best_model_params[c(1,2,3)]
- best_model_params_season=best_model_params[c(4,5,6)]
+ best_model_params_order=best_arima_for_imputation[c(1,2,3)]
+ best_model_params_season=best_arima_for_imputation[c(4,5,6)]
  the_model=arima(input_arima_ts,order=best_model_params_order,seasonal=list(order=best_model_params_season,period=NA))
  predicted_obj=predict(the_model)
  predicted_value=as.numeric(predicted_obj[1])
