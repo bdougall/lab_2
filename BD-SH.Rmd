@@ -494,6 +494,7 @@ After careful observation of the data, most of the missing points are spread out
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Get monthly averages for replacement after imputing missing values
+co2_weekly_unmut=co2_weekly2
 co2_monthly <- co2_weekly2 %>% 
                        group_by(year, month) %>% 
                        summarise(ppm_month_avg = mean(ppm))
@@ -504,8 +505,56 @@ co2_merged <- merge(co2_weekly2, co2_monthly, by = c('year','month'))
 # Create weekly time series               
 co2_noaa_weekly_ts <- ts(co2_merged$ppm, start=c(1974), frequency=52)
 
-#make best arima model for re-imputation
+#make best arima model for re-imputation via arima
 best_arima_for_imputation=get.best.arima.as.comp(co2_noaa_weekly_ts,maxord = c(2,2,2,2,2,2))
+
+
+
+#utility function
+#get num missing by counting negative values in vector
+get_num_missing=function(v) {
+  neg_ind=v<0
+  num_neg=sum(neg_ind)
+  return(num_neg)
+}
+
+#utility function
+#get index of first missing (first
+#index of negative value)
+getIndexOfFirstMissing=function(v) {
+  f_res=which(v<=0)
+  #head(f_res)
+  f_res=as.vector(f_res)
+  return(f_res[1])
+}
+
+
+num_missing=get_num_missing(co2_weekly_unmut$ppm)
+print(paste("num missing is ",num_missing))
+num_loop=0
+while(num_missing>0) {
+ num_loop=num_loop+1
+ idx_first_missing=getIndexOfFirstMissing(co2_weekly_unmut$ppm)
+ time_at_missing_idx=co2_weekly_unmut[idx_first_missing-1,"decimal"]
+ input_arima=co2_weekly_unmut[1:(idx_first_missing-1),]
+ input_arima=input_arima[,c("decimal","ppm")]
+ input_arima_ts=ts(input_arima$ppm,frequency=52,start=c(1974,20))
+ #0 1 1 1 1 2 ? (this is monthly)
+ # 1 AR (acf)
+ # 1 difference (smallest?)
+ # 1 MA (acf)
+ # most parsimonious model? 1 1 2?
+ best_model_params=get.best.arima.as.comp(input_arima_ts)
+ best_model_params_order=best_model_params[c(1,2,3)]
+ best_model_params_season=best_model_params[c(4,5,6)]
+ the_model=arima(input_arima_ts,order=best_model_params_order,seasonal=list(order=best_model_params_season,period=NA))
+ predicted_obj=predict(the_model)
+ predicted_value=as.numeric(predicted_obj[1])
+ co2_weekly_unmut[idx_first_missing,"ppm"]=predicted_value
+ num_missing=get_num_missing(co2_weekly_unmut$ppm)
+}
+
+
 
 # Plot weekly time series
 plot(co2_noaa_weekly_ts, 
