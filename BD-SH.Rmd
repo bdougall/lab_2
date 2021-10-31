@@ -503,7 +503,12 @@ while(num_missing>0) {
  input_arima=co2_weekly_unmut[1:(idx_first_missing-1),]
  input_arima=input_arima[,c("decimal","ppm")]
  input_arima_ts=ts(input_arima$ppm,frequency=52,start=c(1974,20))
- the_model=arima(input_arima_ts,order=c(2,1,2))
+ #0 1 1 1 1 2 ? (this is monthly)
+ # 1 AR (acf)
+ # 1 difference (smallest?)
+ # 1 MA (acf)
+ # most parsimonious model? 1 1 2? 
+ the_model=arima(input_arima_ts,order=c(1,1,2))
  predicted_obj=predict(the_model)
  predicted_value=as.numeric(predicted_obj[1])
  co2_weekly_unmut[idx_first_missing,"ppm"]=predicted_value
@@ -571,6 +576,8 @@ co2_actuals_ts <- ts(co2_actuals_filtered$ppm_month_avg, start=c(1998),
 ############################################
 #co2_actuals_ts is from part 4
 #co2_forecast_ts is from part 3 forecast
+print(paste("dim of stt.preds.start is ",dim(stt.preds.start)))
+print(paste("dim of co2_forecast_ts is ",dim(co2_forecast_ts)))
 ts.plot(co2_actuals_ts, co2_forecast_ts, lty=1:2,
         col=c("navy", "blue"),
         ylab="CO2 (ppm)",
