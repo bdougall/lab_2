@@ -399,6 +399,20 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
     df.results
 }
 
+get.best.arima.as.comp=function(x.ts, maxord = c(1,1,1,1,1,1)) {
+  arima.search.intermediate=get.best.arima(x.ts, maxord)
+  best.arima.intermediate <- head(arima.search.intermediate[with(arima.search.intermediate, order(AICc)),], n=1)
+  pdqPDQ <- as.list(unlist(strsplit(best10.arima[1,1], '[[:space:]]')))
+  p <- strtoi(pdqPDQ[[1]])
+  d <- strtoi(pdqPDQ[[2]])
+  q <- strtoi(pdqPDQ[[3]])
+  P <- strtoi(pdqPDQ[[4]])
+  D <- strtoi(pdqPDQ[[5]])
+  Q <- strtoi(pdqPDQ[[6]])
+  order_thingy=c(p,d,q,P,D,Q)
+  return(order_thingy)
+}
+
 arima.search <- get.best.arima(co2, maxord=c(2,2,2,2,2,2))
 ```
 
@@ -507,8 +521,11 @@ while(num_missing>0) {
  # 1 AR (acf)
  # 1 difference (smallest?)
  # 1 MA (acf)
- # most parsimonious model? 1 1 2? 
- the_model=arima(input_arima_ts,order=c(1,1,2))
+ # most parsimonious model? 1 1 2?
+ best_model_params=get.best.arima.as.comp(input_arima_ts)
+ best_model_params_order=best_model_params[c(1,2,3)]
+ best_model_params_season=best_model_params[c(4,5,6)]
+ the_model=arima(input_arima_ts,order=best_model_params_order,seasonal=list(order=best_model_params_season,period=NA))
  predicted_obj=predict(the_model)
  predicted_value=as.numeric(predicted_obj[1])
  co2_weekly_unmut[idx_first_missing,"ppm"]=predicted_value
