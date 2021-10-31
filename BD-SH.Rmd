@@ -382,23 +382,37 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
     for(p in 0:maxord[1]) for(d in 0:maxord[2]) for(q in 0:maxord[3])
       for(P in 0:maxord[4]) for(D in 0:maxord[5]) for(Q in 0:maxord[6])
       {
-        fit <- arima(x.ts, order=c(p,d,q),
-                           seas = list(order=c(P,D,Q), frequency(x.ts)), 
-                           method="CSS")
-        # consistent AIC
-        fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
-        # regular AIC
-        fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
-        # BIC
-        fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
-        df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
-                         AIC= fit.aic, BIC= fit.bic)
-        df.results <- rbind(df.results, df)
+        tryCatch(
+        {
+          fit <- arima(x.ts, order=c(p,d,q),
+                             seas = list(order=c(P,D,Q), frequency(x.ts)), 
+                                         method="ML")
+          
+          npar <- length(fit$coef[fit$mask]) + 1
+          nstar <- length(fit$residuals) - fit$arma[6] - fit$arma[7] * fit$arma[5]
+  
+          # consistent AIC
+          # fit.aicc <- -2 * fit$loglik + (log(n)+1) * length(fit$coef)
+          # regular AIC
+          fit.aic <- fit$aic
+          # fit.aic <- -2 * fit$loglik + 2 * (length(fit$coef)+1)
+          # BIC
+          # fit.bic <- -2 * fit$loglik + log(n) * (length(fit$coef)+1)
+          fit.bic <- fit.aic + npar * (log(nstar) - 2)
+          fit.aicc <- fit.aic + 2 * npar * (nstar/(nstar - npar - 1) - 1)
+          
+          df <- data.frame(model= paste(p,d,q,P,D,Q), AICc= fit.aicc,
+                           AIC= fit.aic, BIC= fit.bic)
+          df.results <- rbind(df.results, df)
+        },
+        error=function(cond) {
+            paste('[', p,',',d,',',q,']', '[', P,',',D,',',Q,']')
+        }
+        )
       }
     # list(best.aic, best.fit, best.model)
     df.results
 }
-
 get.best.arima.as.comp=function(x.ts, maxord = c(1,1,1,1,1,1)) {
   arima.search.intermediate=get.best.arima(x.ts, maxord)
   best.arima.intermediate <- head(arima.search.intermediate[with(arima.search.intermediate, order(AICc)),], n=1)
