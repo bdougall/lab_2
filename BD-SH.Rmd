@@ -432,17 +432,17 @@ Q <- strtoi(pdqPDQ[[6]])
 # Estimate the model
 co2.sarima.2 <- arima(co2, order=c(p,d,q),
                       seasonal = list(order=c(P,D,Q)), 
-                      method="CSS")
+                      method="ML")
 
 ```
 **Our best `sarima` model can be expressed as below in the form backshift operator**    
   $$(1-\phi_1B)(1-\Phi_1B^{12} - -\Phi_2B^{13})(1-B)(1-B^{12}) x_t = (1+\theta_1B)  (1 + \Theta_{12}B^{12} + \Theta_{13}B^{13} )w_t $$
     
-$(1-\phi_1B)$ represents auto regressive term, $(1-\Phi_1B^{12} -\Phi_2B^{13})$ represents seasonal auto regressive term, $(1+\theta_1B)$ represents moving average term and  $(\Theta_{12}B^{12} + \Theta_{13}B^{13} )$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.$$
+$(1-\phi_1B)$ represents auto regressive term, $(1-\Phi_1B^{12} -\Phi_2B^{13})$ represents seasonal auto regressive term, $(1+\theta_1B)$ represents moving average term and  $(\Theta_{12}B^{12} + \Theta_{13}B^{13} )$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.
 
-  
+
 **After solving for coefficients using R `arima` model, we get**   
-      $x_t = x_{t-1} + ($ `r co2.sarima.2$coef[2]` $) * x_{t-12}$ + + ($ `r co2.sarima.2$coef[3]` $) * x_{t-13}$ + $w_t$ + $($ `r co2.sarima.2$coef[1] ` $) * w_{t-1}$ +  $($ `r co2.sarima.2$coef[4]`  $) * w_{t-12}$  +  $($ `r co2.sarima.2$coef[5]`  $) * w_{t-13}$       
+      $x_t = x_{t-1} + ($ `r co2.sarima.2$coef[2]` $) * x_{t-12}$ + + ($ `r co2.sarima.2$coef[3]` $) * x_{t-13}$ + $w_t$ + $($ `r co2.sarima.2$coef[1] ` $) * w_{t-1}$ +  $($ `r co2.sarima.2$coef[4]`  $) * w_{t-12}$  +  $($ `r co2.sarima.2$coef[5]`  $) * w_{t-13}$      
         
     where $x_{t-12}$ and $x_{t-13}$represents 12th & 13th lag of time series, 
     which comes from seasonal part of arima model. The $x_{t-1}$ is the results 
@@ -454,6 +454,7 @@ $(1-\phi_1B)$ represents auto regressive term, $(1-\Phi_1B^{12} -\Phi_2B^{13})$ 
     before current time step. This is the result of seasonal moving 
     average component of our model.
 
+
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Inspect the residual plots and find the estimated AICc
 sarima2.aicc <- -2 *co2.sarima.2$loglik + (log(length(co2))+1) * length(co2.sarima.2$coef)
@@ -462,7 +463,6 @@ tsdisplay(co2.sarima.2$residuals, main = {toString(pdqPDQ)})
 sarima2.aicc
 Box.test(co2.sarima.2$residuals, type="Ljung-Box")
 autoplot(co2.sarima.2)
-
 ```
 
 The AICc value is smaller than that of our initial model estimate, and the majority of ACF and PACF values fall within the $95\%$ confidence interval bounds for white noise. In addition, the Ljung-Box test indicates that the data are independently distributed since we fail to reject the null hypothesis. 
@@ -674,7 +674,7 @@ co2.sarima.3 <- arima(train.ts, order=c(p.2,d.2,q.2),
 **Our best `sarima` model can be expressed as below in the form backshift operator**    
   $$(1-\phi_1B)(1-B)(1-B^{12}) x_t = (1+\theta_1B)  (1 + \Theta_{12}B^{12} )w_t $$
     
-$(1-\phi_1B)$ represents auto regressive term,  $(1+\theta_1B)$ represents moving average term and  $( 1 + \Theta_{12}B^{12})$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.$$
+$(1-\phi_1B)$ represents auto regressive term,  $(1+\theta_1B)$ represents moving average term and  $( 1 + \Theta_{12}B^{12})$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.
 
   
 **After solving for coefficients using R `arima` model, we get**   
@@ -759,12 +759,26 @@ mae(actuals_fore_diff2)
 Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
-
-mo_to_forecast <- (2100 - 2021)*12 + 6
+mo_to_forecast <- (2100 - 2019)*12 + 6
 co2.forecast.2100 <- forecast(co2.sarima.3, mo_to_forecast) # 24 month forecast
 co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
-plot(co2.forecast.2100, main = "CO2 Forecasts through 2100")
+lower.bound.2100 <- co2.forecast.2100$lower[,2] # 95% confidence
+upper.bound.2100 <- co2.forecast.2100$upper[,2] 
+plot(co2.forecast.2100, main = "SARIMA Atmospheric CO2 Forecasts through 2100")
+abline(h=450, lty=2)
+```
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+
+co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
+
+forecast.450 <- (co2_forecast_ts2100 > 450)
 
 ```
+
+
+
+
+
+We forecast that atmospheric CO2 would exceed 600 ppm by December 2021 with 95% confidence that the level of CO2 will be between 529 and 673 ppm. This is nearly 43% higher than current CO2 levels. It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates and eventually declines.
 
 
