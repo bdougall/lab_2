@@ -476,15 +476,20 @@ co2.sarima.2 <- arima(co2, order=c(p,d,q),
                       xreg = time.diff.sq$square,
                       method="ML")
 
-co2.sarima.2 <- auto.arima(co2,
-                      xreg = time.diff.sq$square,
-                      method="ML")
-summary(co2.sarima.auto)
+# co2.sarima.2 <- auto.arima(co2,
+#                       xreg = time.diff.sq$square,
+#                       method="ML")
+# summary(co2.sarima.auto)
 ```
-**Our best `sarima` model can be expressed as below**    
-  $$(1-B)(1-B)^{12} x_t = (1+\theta_1B + \theta_{12}B^{12} + \theta_{13}B^{13} )w_t $$
-**After solving the above equation with the results from R model, we get** 
-      $x_t = x_{t-1} + ($ `r co2.sarima.2$coef[2]` $) * x_{t-12}$ + $w_t$ + $($ `r co2.sarima.2$coef[1] ` $) * w_{t-1}$ +  $($ `r co2.sarima.2$coef[3]`  $) * w_{t-12}$  +  $($ `r co2.sarima.2$coef[4]`  $) * w_{t-13}$       
+**Our best `sarima` model can be expressed as below in the form backshift operator**    
+  $$(1-\phi_1B)(1-\Phi_1B^{12} - \Phi_2B^{13})(1-B)(1-B^{12}) x_t = (1+\theta_1B)  (1 + \Theta_{12}B^{12} )w_t $$
+    
+$(1-\phi_1B)$ represents auto regressive term, $(1-\Phi_1B^{12} -\Phi_2B^{13})$ represents seasonal auto regressive term, $(1+\theta_1B)$ represents moving average term and  $(\Theta_{12}B^{12} + \Theta_{13}B^{13} )$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.$$
+
+  
+**After solving for coefficients using R `arima` model, we get**   
+      $x_t = x_{t-1} + ($ `r co2.sarima.2$coef[2]` $) * x_{t-12}$ + + ($ `r co2.sarima.2$coef[3]` $) * x_{t-13}$ + $w_t$ + $($ `r co2.sarima.2$coef[1] ` $) * w_{t-1}$ +  $($ `r co2.sarima.2$coef[4]`  $) * w_{t-12}$  +  $($ `r co2.sarima.2$coef[5]`  $) * w_{t-13}$       
+        
     where $x_{t-12}$ represents 12th lag of time series and $x_{t-1}$ is the results of first difference of time series i.e.  $x^{1}_t = x_t - x_{t-1}$     
     $w_t$ is white noise from current time step, $w_{t-1}$ is white noise from the previous time step, which is the result of AR moving average. $w_{t-12}$ is the white noise from 12 steps before (seasonal) current time step and $w_{t-13}$ is the white noise from 13 steps before current time step. This is the result of seasonal moving average component of our model.
     
@@ -610,6 +615,73 @@ ts.plot(actuals_fore_diff, lty=2,
 The difference between the actual measured CO2 levels from 1998 to present and our forecasts is stark. It is clear from the plot above that we underestimated the growth of the series over the subsequent 20+ years. Given that our best model's residuals were stationary and resembled to white noise, we would conclude that the forecast error was not necessarily due to a model misspecification, but rather a change in the underlying CO2 generating process. We hypothesize this could be due to the rapid growth of China's economy and other emerging market economies through the 2000s and 2010s^[https://climateactiontracker.org/countries/china/]. This could be the subject of a deeper, causal understanding of what is driving the ever-increasing concentrations of atmospheric CO2. 
 
 
+##ANALYSIS OF WHY STARK DIFFERENCE IN FORECAST COMPARE TO ACTUAL - PRABHU
+As we are forecasting from 1998 to 2021, we will look at the difference between 'period before 1998' and 'period after 1998'
+
+```{r}
+
+
+noaa.prior1998.df <- subset(co2_noaa_monthly_df, (year < 1998 ))
+
+forecasted.df <- subset(co2_noaa_monthly_df, (year >= 1998 ))
+
+forecasted.ts <- ts(forecasted.df$ppm_month_avg, start = c(1998, 1), 
+              frequency = 12)
+noaa.prior1998.ts <- ts(noaa.prior1998.df$ppm_month_avg, end = c(1997, 12), 
+              frequency = 12)              
+
+forecasted.decompose = decompose(forecasted.ts)
+noaa.prior1998.decompose = decompose(noaa.prior1998.ts)
+
+```
+
+```{r}
+par(mfrow = c(1, 3))
+plot(co2.decompose$trend)
+plot(noaa.prior1998.decompose$trend)
+plot(forecasted.decompose$trend)
+
+```
+
+```{r}
+co2.ppm = c(diff(co2))
+noaa.prior1998.diff = c(diff(noaa.prior1998.ts))
+forecasted.diff = c(diff(forecasted.ts))
+
+max_ln <- max(c(length(co2.diff), length(noaa.prior1998.diff), 
+      length(forecasted.diff)) )
+
+combined_diff<- data.frame(co2.diff = c(co2.diff,rep(NA, max_ln - length(co2.diff))),
+                      noaa.prior1998.diff = c(noaa.prior1998.diff,
+                          rep(NA, max_ln - length(noaa.prior1998.diff))),
+                      forecasted.diff = c(forecasted.diff,
+                          rep(NA, max_ln - length(forecasted.diff))))
+
+
+combined_diff$id <- row.names(combined_diff)
+
+ggplot(data=combined_diff, aes(x=id)) +
+  geom_line(aes(y=co2.diff))
+
+```
+
+
+```{r}
+par(mfrow = c(1, 3))
+acf(co2)
+acf(noaa.prior1998.ts)
+acf(forecasted.ts)
+
+pacf(co2)
+pacf(noaa.prior1998.ts)
+pacf(forecasted.ts)
+
+```
+### ENDS HERE - PRABHU
+
+
+
+
 **Part 5 (5 points)**
 
 Split the NOAA series into training and test sets, using the final two years of observations as the test set. Fit an ARIMA model to the series following all appropriate steps, including comparison of how candidate models perform both in-sample and (psuedo-) out-of-sample. Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
@@ -688,4 +760,8 @@ ts.plot(co2.noaa.test.ts, co2.noaa.forecast.ts, lty=1:2,
         )
 legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
 ```
+
+
+
+
 
