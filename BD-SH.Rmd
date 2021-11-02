@@ -837,11 +837,31 @@ Generate a prediction for atmospheric CO2 levels in the year 2100. How confident
 
 co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
 
-forecast.450 <- (co2_forecast_ts2100 > 450)
-
 ```
 
 
 We forecast that atmospheric CO2 would exceed 600 ppm by December 2021 with 95% confidence that the level of CO2 will be between 529 and 673 ppm. This is nearly 43% higher than current CO2 levels. It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates and eventually declines.
 
+```{r}
+####################################
+#get upper confidence interval data
+upper_data=co2.forecast.2100$upper
+#at the 95%  confidence level
+upper_data_95=upper_data[,"95%"]
+#find the first interval covering 450ppm
+first_95_int_w450=which(upper_data_95>=450)[1]
+time_pt_first_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
+
+####################################
+#get point data
+pt_data=co2.forecast.2100[4]$mean
+#and where it hits at least 450ppm
+pt_first_idx_w450=which(pt_data>=450)[1]
+time_pt_first_pt=as.yearmon(time(pt_data))[pt_first_idx_w450]
+
+print(paste("Based on inspecting the forecast results, the first time the upper-confidence interval (at the 95% level) includes 450 at ",time_pt_first_95,".",sep=""))
+print(paste("Furthermore, based on inspecting the forecast results, the main prediction meets 450 is at ",time_pt_first_pt,".",sep=""))
+```
+
+Finally, upon inspecting the forecast's confidence intervals' upper bounds, we observe that the first time that it includes 450ppm is in March 2032 ; additionally, the first time that the main prediction itself meets or exceeds 450ppm is 3 years later in March 2035.
 
