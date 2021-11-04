@@ -421,10 +421,23 @@ co2.sarima.2 <- arima(co2, order=c(p,d,q),
 
 ```
 **Our best `sarima` model can be expressed as below in the form backshift operator**    
-  $$(1-\Phi_1B^{12} - -\Phi_2B^{13})(1-B)(1-B^{12}) x_t = (1+\theta_1B)  (1 + \Theta_{12}B^{12} + \Theta_{13}B^{13} )w_t $$
+$$(1-\Phi_1B^{12} - \Phi_2B^{13})(1-B)(1-B^{12}) x_t = (1+\theta_1B)  (1 + \Theta_{12}B^{12} + \Theta_{13}B^{13} )w_t $$
     
  $(1-\Phi_1B^{12} -\Phi_2B^{13})$ represents seasonal auto regressive term, $(1+\theta_1B)$ represents moving average term and  $(\Theta_{12}B^{12} + \Theta_{13}B^{13} )$ represents seasonal moving average of `arima` model. $w_t$ represents white noise of the time series.
 
+
+**After solving for coefficients using R `arima` model, we get**   
+      $x_t = x_{t-1} + ($ `r co2.sarima.2$coef[2]` $) * x_{t-12}$ + + ($ `r co2.sarima.2$coef[3]` $) * x_{t-13}$ + $w_t$ + $($ `r co2.sarima.2$coef[1] ` $) * w_{t-1}$ +  $($ `r co2.sarima.2$coef[4]`  $) * w_{t-12}$  +  $($ `r co2.sarima.2$coef[5]`  $) * w_{t-13}$      
+      
+where $x_{t-12}$ and $x_{t-13}$represents 12th & 13th lag of time series, 
+which comes from seasonal part of arima model. The $x_{t-1}$ is the results 
+of first difference of time series i.e.  $x^{1}_t = x_t - x_{t-1}$     
+$w_t$ is white noise from current time step, $w_{t-1}$ is white noise 
+from the previous time step, which is the result of AR moving average. 
+$w_{t-12}$ is the white noise from 12 steps before (seasonal) the 
+current time step and $w_{t-13}$ is the white noise from 13 steps 
+before current time step. This is the result of seasonal moving 
+average component of our model.
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Inspect the residual plots and find the estimated AICc
@@ -745,15 +758,14 @@ $(1-\phi_1B)$ represents auto regressive term,  $(1+\theta_1B)$ represents movin
 **After solving for coefficients using R `arima` model, we get**   
       $x_t = x_{t-1}$ +  $($ `r co2.sarima.3$coef[2] ` $) * x_{t-1}$ + $w_t$ + $($ `r co2.sarima.3$coef[2] ` $) * w_{t-1}$ +  $($ `r co2.sarima.3$coef[3]`  $) * w_{t-12}$         
         
-    where  $x_{t-1}$ is the results of first difference of time series 
-    i.e.  $x^{1}_t = x_t - x_{t-1}$ and second $x_{t-1}$ is the result of 
-    auto regressive term.      
-    $w_t$ is the white noise from the current time step, $w_{t-1}$ is 
-    white noise from the previous time step, which is the result of the 
-    AR moving average. $w_{t-12}$ is the white noise from 12 steps 
-    before (i.e. seasonal) current time step. 
-    This is the result of the seasonal moving average component of our model.
-
+where  $x_{t-1}$ is the results of first difference of time series 
+i.e.  $x^{1}_t = x_t - x_{t-1}$ and second $x_{t-1}$ is the result of 
+auto regressive term.      
+$w_t$ is the white noise from the current time step, $w_{t-1}$ is 
+white noise from the previous time step, which is the result of the 
+AR moving average. $w_{t-12}$ is the white noise from 12 steps 
+before (i.e. seasonal) current time step. 
+This is the result of the seasonal moving average component of our model.
 
 ```{r}
 # Inspect the residual plots and find the estimated AICc
@@ -825,10 +837,30 @@ Generate a prediction for atmospheric CO2 levels in the year 2100. How confident
 
 co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
 
-forecast.450 <- (co2_forecast_ts2100 > 450)
-
 ```
 
 We forecast that atmospheric CO2 would exceed 600 ppm by December 2021 with 95% confidence that the level of CO2 will be between 529 and 673 ppm. This is nearly 43% higher than current CO2 levels. It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates and eventually declines.
 
+```{r}
+####################################
+#get upper confidence interval data
+upper_data=co2.forecast.2100$upper
+#at the 95%  confidence level
+upper_data_95=upper_data[,"95%"]
+#find the first interval covering 450ppm
+first_95_int_w450=which(upper_data_95>=450)[1]
+time_pt_first_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
+
+####################################
+#get point data
+pt_data=co2.forecast.2100[4]$mean
+#and where it hits at least 450ppm
+pt_first_idx_w450=which(pt_data>=450)[1]
+time_pt_first_pt=as.yearmon(time(pt_data))[pt_first_idx_w450]
+
+print(paste("Based on inspecting the forecast results, the first time the upper-confidence interval (at the 95% level) includes 450 at ",time_pt_first_95,".",sep=""))
+print(paste("Furthermore, based on inspecting the forecast results, the main prediction meets 450 is at ",time_pt_first_pt,".",sep=""))
+```
+
+Finally, upon inspecting the forecast's confidence intervals' upper bounds, we observe that the first time that it includes 450ppm is in March 2032 ; additionally, the first time that the main prediction itself meets or exceeds 450ppm is 3 years later in March 2035.
 
