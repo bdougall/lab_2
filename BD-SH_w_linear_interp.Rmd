@@ -97,47 +97,47 @@ co2.bothdiff = diff(co2.diff,lag = 12)
 co2.deseasoned = co2 - co2.decompose$seasonal
 co2.detrended = co2 - co2.decompose$trend
 
-plot(co2, main = "Figure1: Monthly Mean CO2 Variation",
+plot(co2, main = "Figure 1: Monthly Mean CO2 Variation",
           ylab = expression("CO2 ppm"), col = 'blue', las = 1)
 
 plot(co2.deseasoned, 
-    main = expression("Figure2: Presence of CO2 in air  after removing season"), 
+    main = expression("Figure 2: Presence of CO2 in air  after removing season"), 
     xlab = "year", ylab = "CO2 ppm")
 
 plot(co2.detrended, 
-     main = expression("Figure3: Presence of CO2 in air after removing trend"), 
+     main = expression("Figure 3: Presence of CO2 in air after removing trend"), 
      xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 
 abline(h= 0)
 
 plot(co2.diff, 
-main = expression("Figure4: Presence of CO2 in air after differencing"), 
+main = expression("Figure 4: Presence of CO2 in air after differencing"), 
 xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 
 abline(h= 0)
 
 plot(co2.seasdiff, 
-main = expression("Figure5: Presence of CO2 in air after seasonal differencing "), 
+main = expression("Figure 5: Presence of CO2 in air after seasonal differencing "), 
 xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
 plot(co2.bothdiff, 
-  main = expression("Figure6: Presence of CO2 in air non-seasonal and seasonal differencing"), 
+  main = expression("Figure 6: Presence of CO2 in air non-seasonal and seasonal differencing"), 
          xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
-boxplot(co2 ~ cycle(co2), main="Figure7: Boxplot of CO2 (ppm) by month")
+boxplot(co2 ~ cycle(co2), main="Figure 7: Boxplot of CO2 (ppm) by month")
 
 ```
   
 Data provided has CO2 presence in the air (parts per million) in monthly time series format from 1959 to 1998.  
-From Figure1: The time series plot of the mean of co2 presence in the air indicates a clear trend and seasonal effect. We also observe that the variance is constant over time, which suggests no need for transformation.  
-From Figure2: We see a clear upward trend in the mean of the presence of Co2 in the air.   
-From Figure3:  Co2 presence in the air after removing the trend component from the time series indicates the persistent yearly seasonal effect. The de-trended series also appears to be mean and variance stationary.  
-From Figure4: Trend is abstracted by taking the first difference of the time series. It suggests we use ARIMA with integration/difference of 1.  
-From Figure5: Seasonality absent after applying difference of 12 lags for the season. We still see trends present.  
-From Figure6: Seasonality and trend are absent after one lag and 12 lags for the season. After seasonal and non-seasonal differencing, the series appears stationary with a relatively constant mean.
-From Figure7: Seasonality is apparent across months. For instance, notice the increase in CO2 from the first quarter to the end of the second quarter (month 6), and then the decline in CO2 until October. 
+From Figure 1: The time series plot of the mean of co2 presence in the air indicates a clear trend and seasonal effect. We also observe that the variance is constant over time, which suggests no need for transformation.  
+From Figure 2: We see a clear upward trend in the mean of the presence of Co2 in the air.   
+From Figure 3:  Co2 presence in the air after removing the trend component from the time series indicates the persistent yearly seasonal effect. The de-trended series also appears to be mean and variance stationary.  
+From Figure 4: Trend is abstracted by taking the first difference of the time series. It suggests we use ARIMA with integration/difference of 1.  
+From Figure 5: Seasonality absent after applying difference of 12 lags for the season. We still see trends present.  
+From Figure 6: Seasonality and trend are absent after one lag and 12 lags for the season. After seasonal and non-seasonal differencing, the series appears stationary with a relatively constant mean.
+From Figure 7: Seasonality is apparent across months. For instance, notice the increase in CO2 from the first quarter to the end of the second quarter (month 6), and then the decline in CO2 until October. 
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 autoplot(co2.decompose, main = "Decomposition of C02 Time Series")
@@ -211,7 +211,7 @@ plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n AR and seasonal dif
 ```
   
   Decomposition graph confirms the findings from EDA that trend and seasonality are present in the time series.  
-  Above ACF and PACF graph shows for different adjustments of time series: 1) original series 2) de-seasoned 3) de-trended 4) random component of time series 5) One-period differenced for trend 6) One-period difference and seasonal difference time series. We noted a few observations below:  
+  The above ACF and PACF graphs show for different adjustments of time series, in the following order: 1) original series 2) de-seasoned 3) de-trended 4) random component of time series 5) One-period differenced for trend 6) One-period difference and seasonal difference time series. We noted a few observations below:  
   * PACF graph shows autocorrelation dying off after first lag after de-seasoned. This suggests to use only 1st order autoregressive model. This also suggests taking the first seasonal difference is important. 
   * ACF graph shows clear seasonal effect after removing trend  
   * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. Significant correlations at a 1 year lag suggests the need for a MA term.   * In the PACF with AR and seasonal differences plot, the significant negative correlations at 1 and 2 year lags suggest we should explore using a seasonal AR term in our model. 
@@ -237,7 +237,7 @@ Box.test(co2.ts.lm.linear$residuals, type="Ljung-Box")
 ```
 After fitting a time-trend model, we performed several checks to assess model fit. As seen above, the plot of the residuals against the normal distribution shows skewing in the tails, suggesting that the linear model residuals are not normally distributed. 
 
-The ACF and PACF plots show evidence of autocorrelation in the residuals. This suggests poor model fit and clustering of errors, which would underestimate standard errors of the coefficients. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$), meaning that we can reject with 95% confidence the null hypothesis that the residuals are independently distributed.  
+The ACF and PACF plots show evidence of autocorrelation in the residuals. This suggests poor model fit and clustering of errors, which would underestimate standard errors of the coefficients. This latter finding is supported by the results of the Ljung-Box test, which has a small p-value ($<0.05$), meaning that we can reject with 95% confidence the null hypothesis that the residuals are independently distributed (the model exhibits a lack of fit).  
 
 ## Log Transformation of CO2 Levels
 
@@ -247,7 +247,7 @@ plot(co2, main="CO2 Levels")
 plot(log(co2), main="Log-Transformed CO2 Levels")
 ```
 
-At first glance, the log-transformed series appears very similar to the raw series. Also, the raw monthly CO2 series does not appear to exhibit increasing variance through time, which suggests that a log-transformation is not necessary. We will continue to fit a log-transformed time trend model. 
+At first glance, the log-transformed series appears very similar to the raw series. Also, the raw monthly CO2 series does not appear to exhibit increasing variance through time, which suggests that a log-transformation is not necessary. However, we will continue to fit a log-transformed time trend model for verification. 
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 log.fit <- lm(log(co2) ~ time(co2) + I(time(co2)^2))
@@ -339,8 +339,8 @@ hist(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
 # A time series plot of the residuals appears to have a constant mean
 # The ACF and PACF plots show a few significant autocorrelations
 tsdisplay(co2.sarima$residuals, main = "SARIMA (0,1,2) (1,0,0)")
-# But the model fails to reject the null hypothesis, suggesting that the 
-# residuals are independently distributed
+# But the model fails to reject the null hypothesis, suggesting that
+# the residuals are not serially correlated
 Box.test(co2.sarima$residuals, type="Ljung-Box")
 
 # Check the inverse unit roots for stationarity
@@ -554,7 +554,7 @@ ts.plot(actuals_fore_diff, lty=2,
         )
 ```
 
-The difference between the actual measured CO2 levels from 1998 to present and our forecasts is stark. It is clear from the plot above that we underestimated the growth of the series over the subsequent 20+ years. Given that our best model's residuals were stationary and resembled to white noise, we would conclude that the forecast error was not necessarily due to a model misspecification, but rather a change in the underlying CO2 generating process. We hypothesize this could be due to the rapid growth of China's economy and other emerging market economies through the 2000s and 2010s^[https://climateactiontracker.org/countries/china/]. This could be the subject of a deeper, causal understanding of what is driving the ever-increasing concentrations of atmospheric CO2. 
+The difference between the actual measured CO2 levels from 1998 to present and our forecasts is stark. It is clear from the plot above that we underestimated the growth of the series over the subsequent 20+ years. Given that our best model's residuals were stationary and resembled to white noise, we would conclude that the forecast error was not necessarily due to a model mis-specification, but rather a change in the underlying CO2 generating process. We hypothesize this could be due to the rapid growth of China's economy and other emerging market economies through the 2000s and 2010s^[https://climateactiontracker.org/countries/china/]. This could be the subject of a deeper, causal understanding of what is driving the ever-increasing concentrations of atmospheric CO2. 
 
 To further illustrate this, we created cumulative CO2 (ppm) growth indices of the same number of months. In the plot below, notice that cumulative growth in ppm was greater post-1998 than pre-1998. This indicates that something exogenous changed the trajectory of atmospheric CO2 concentrations in the 276 months following our in-sample period, which would not be expected to be captured by our best ARIMA model. 
 
@@ -653,7 +653,7 @@ Box.test(arima.mod1$residuals, type="Ljung-Box")
 autoplot(arima.mod1)
 ```
 
-The ACF and PACF plots of the residuals of our initial model both show significant correlations at lag 12. Additionally, the PACF plot shows a significant correlation at lag 24. This suggests that we should explore additional seasonal parameters. Similar to the finding the optimal monthly model, we will search for the best seasonal Arima parameters using our `get.best.arima` function.
+The ACF and PACF plots of the residuals of our initial model both show significant correlations at lag 12. Additionally, the PACF plot shows a significant correlation at lag 24. Although we fail to reject the null hypothesis that the model does not exhibit lack of fit (in our Ljung-Box test), we decided to explore additional seasonal parameters given the ACF and PACF plots. Similar to the finding the optimal monthly model, we will search for the best seasonal Arima parameters using our `get.best.arima` function.
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Minimize AICc 
