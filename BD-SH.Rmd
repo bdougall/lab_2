@@ -829,7 +829,6 @@ forecast.450 <- (co2_forecast_ts2100 > 450)
 
 ```
 
-
 We forecast that atmospheric CO2 would exceed 600 ppm by December 2021 with 95% confidence that the level of CO2 will be between 529 and 673 ppm. This is nearly 43% higher than current CO2 levels. It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates and eventually declines.
 
 
