@@ -577,7 +577,7 @@ pre98.growth <- ts(cumsum(pre98.diff), frequency=12)
 post98.growth <- ts(cumsum(post98.diff), frequency=12)
 
 ts.plot(pre98.growth, post98.growth, lty=1,
-        col=c("navy", "blue"),›
+        col=c("navy", "blue"),
         ylab="CO2 (ppm)",
         main="Pre-1998 vs Post-1998 Trends in CO2 Concentrations" 
         )
