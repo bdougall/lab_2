@@ -476,21 +476,6 @@ describe(co2_weekly)
 
 NOAA data provided in the file has 2458 weekly observations from 1974 to 2021 with 10 variables. Variable `ppm` tracks weekly co2 presence.  We will be using `ppm` values for our analysis. It appears that NOAA uses -999 to represent missing values. For `ppm`, there are 18 observations missing. 
 
-```{r, message=FALSE, warning=FALSE, fig.height=5}
-get.best.arima.as.comp=function(x.ts, maxord = c(1,1,1,1,1,1)) {
-  arima.search.intermediate=get.best.arima(x.ts, maxord)
-  best.arima.intermediate <- head(arima.search.intermediate[with(arima.search.intermediate, order(AICc)),], n=1)
-  pdqPDQ <- as.list(unlist(strsplit(best10.arima[1,1], '[[:space:]]')))
-  p <- strtoi(pdqPDQ[[1]])
-  d <- strtoi(pdqPDQ[[2]])
-  q <- strtoi(pdqPDQ[[3]])
-  P <- strtoi(pdqPDQ[[4]])
-  D <- strtoi(pdqPDQ[[5]])
-  Q <- strtoi(pdqPDQ[[6]])
-  order_thingy=c(p,d,q,P,D,Q)
-  return(order_thingy)
-}
-```
 
 ## Impute Missing Values Linearly
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
@@ -500,13 +485,15 @@ co2_weekly2 <- data.frame(lapply(co2_weekly,
 par(mfrow = c(2, 1))
 plot(co2_weekly$ppm[1:200], type="l", 
      xlab="Weeks", ylab="co2", main="First 200 Weeks of Raw Data")
+
 plot(co2_weekly2$ppm[1:200], type="l", col="red", 
      xlab="Weeks", ylab="co2", main="Linearly Interpolate Missing Values")
 ```
-```{r, message=FALSE, warning=FALSE, fig.height=5}
-co2_weekly_unmut=co2_weekly2
 
-# Get monthly averages for replacement after imputing missing values
+After careful observation of the data, most of the missing points are spread out across the data set (i.e. we do not need to impute 18 weeks in a row). As a result, we suggest it is reasonable to simply interpolate the missing values linearly. The plot above shows the first 200 weeks of the original data series with missing data and a new time series with missing values imputed. 
+
+```{r, message=FALSE, warning=FALSE, fig.height=5}
+# Get monthly averages for replacement after imputing missing values linearly
 co2_monthly <- co2_weekly2 %>% 
                        group_by(year, month) %>% 
                        summarise(ppm_month_avg = mean(ppm))
@@ -516,54 +503,6 @@ co2_merged <- merge(co2_weekly2, co2_monthly, by = c('year','month'))
 
 # Create weekly time series               
 co2_noaa_weekly_ts <- ts(co2_merged$ppm, start=c(1974), frequency=52)
-
-#make best arima model for re-imputation via arima
-best_arima_for_imputation=get.best.arima.as.comp(co2_noaa_weekly_ts,maxord = c(2,2,2,2,2,2))
-#utility function
-#get num missing by counting negative values in vector
-get_num_missing=function(v) {
-  neg_ind=v<0
-  num_neg=sum(neg_ind)
-  return(num_neg)
-}
-#utility function
-#get index of first missing (first
-#index of negative value)
-getIndexOfFirstMissing=function(v) {
-  f_res=which(v<=0)
-  #head(f_res)
-  f_res=as.vector(f_res)
-  return(f_res[1])
-}
-```
-
-```{r, message=FALSE, warning=FALSE, fig.height=5}
-num_missing=get_num_missing(co2_weekly_unmut$ppm)
-num_loop=0
-
-while(num_missing>0) {
- num_loop=num_loop+1
- idx_first_missing=getIndexOfFirstMissing(co2_weekly_unmut$ppm)
- time_at_missing_idx=co2_weekly_unmut[idx_first_missing-1,"decimal"]
- input_arima=co2_weekly_unmut[1:(idx_first_missing-1),]
- input_arima=input_arima[,c("decimal","ppm")]
- input_arima_ts=ts(input_arima$ppm,frequency=52,start=c(1974,20))
- # Choose best arima parameters from linearly interpolated model
- best_model_params_order=best_arima_for_imputation[c(1,2,3)]
- best_model_params_season=best_arima_for_imputation[c(4,5,6)]
- the_model=arima(input_arima_ts,order=best_model_params_order,seasonal=list(order=best_model_params_season,period=NA))
- predicted_obj=predict(the_model)
- predicted_value=as.numeric(predicted_obj[1])
- co2_weekly_unmut[idx_first_missing,"ppm"]=predicted_value
- num_missing=get_num_missing(co2_weekly_unmut$ppm)
-}
-
-```
-
-
-After careful observation of the data, most of the missing points are spread out across the data set (i.e. we do not need to impute 18 weeks in a row). As a result, we suggest it is reasonable to simply interpolate the missing values linearly. The plot above shows the first 200 weeks of the original data series with missing data and a new time series with missing values imputed. 
-
-```{r, message=FALSE, warning=FALSE, fig.height=5}
 
 # Plot weekly time series
 plot(co2_noaa_weekly_ts, 
@@ -617,40 +556,33 @@ ts.plot(actuals_fore_diff, lty=2,
 
 The difference between the actual measured CO2 levels from 1998 to present and our forecasts is stark. It is clear from the plot above that we underestimated the growth of the series over the subsequent 20+ years. Given that our best model's residuals were stationary and resembled to white noise, we would conclude that the forecast error was not necessarily due to a model misspecification, but rather a change in the underlying CO2 generating process. We hypothesize this could be due to the rapid growth of China's economy and other emerging market economies through the 2000s and 2010s^[https://climateactiontracker.org/countries/china/]. This could be the subject of a deeper, causal understanding of what is driving the ever-increasing concentrations of atmospheric CO2. 
 
-
-As we are forecasting from 1998 to 2021, we will look at the difference between 'period before 1998' and 'period after 1998'
-
-```{r}
-noaa.prior1998.df <- subset(co2_noaa_monthly_df, (year < 1998 ))
-forecasted.df <- subset(co2_noaa_monthly_df, (year >= 1998 ))
-forecasted.ts <- ts(forecasted.df$ppm_month_avg, start = c(1998, 1), 
-              frequency = 12)
-noaa.prior1998.ts <- ts(noaa.prior1998.df$ppm_month_avg, end = c(1997, 12), 
-              frequency = 12)              
-forecasted.decompose = decompose(forecasted.ts)
-noaa.prior1998.decompose = decompose(noaa.prior1998.ts)
-```
+To further illustrate this, we created cumulative CO2 (ppm) growth indices of the same number of months. In the plot below, notice that cumulative growth in ppm was greater post-1998 than pre-1998. This indicates that something exogenous changed the trajectory of atmospheric CO2 concentrations in the 276 months following our in-sample period, which would not be expected to be captured by our best ARIMA model. 
 
 ```{r}
-co2.ppm = c(co2)
-noaa.prior1998.ppm = c(noaa.prior1998.ts)
-forecasted.ppm = c(forecasted.ts)
-max_ln <- max(c(length(co2.ppm), length(noaa.prior1998.ppm), 
-      length(forecasted.ppm)) )
-combined_ppm<- data.frame(co2.ppm = c(co2.ppm,rep(NA, max_ln - length(co2.ppm))),
-                      noaa.prior1998.ppm = c(noaa.prior1998.ppm,
-                          rep(NA, max_ln - length(noaa.prior1998.ppm))),
-                      forecasted.ppm = c(forecasted.ppm,
-                          rep(NA, max_ln - length(forecasted.ppm))))
-combined_ppm$row_id <- strtoi(row.names(combined_ppm))
 
-ggplot(data = combined_ppm, aes(x = row_id))+
-  geom_line(aes(y = co2.ppm), color = "black") +
-  geom_line(aes(y = noaa.prior1998.ppm), color="blue", 
-  linetype="twodash") +
-  geom_line(aes(y = forecasted.ppm), color="red", 
-  linetype="dashed") +
-  scale_color_manual(name = "Co2 series", values = c("Y1" = "darkblue", "Y2" = "red"))
+cagr <- function(FV, PV, yrs = 4) {
+values <- ((FV/PV)^(1/yrs)-1)
+return(values)
+}
+
+pre98.df <- subset(co2_noaa_monthly_df, (year < 1998 & year > 1974))['ppm_month_avg']
+post98.df <- subset(co2_noaa_monthly_df, (year >= 1998 ))['ppm_month_avg']
+# cut to equal size in months
+post98.df <- head(post98.df, n=nrow(pre98.df)) 
+
+pre98.diff <- diff(as.matrix(pre98.df))
+post98.diff <- diff(as.matrix(post98.df))
+
+pre98.growth <- ts(cumsum(pre98.diff), frequency=12)
+post98.growth <- ts(cumsum(post98.diff), frequency=12)
+
+ts.plot(pre98.growth, post98.growth, lty=1,
+        col=c("navy", "blue"),›
+        ylab="CO2 (ppm)",
+        main="Pre-1998 vs Post-1998 Trends in CO2 Concentrations" 
+        )
+legend("topleft", legend=c("Pre-1998", "Post-1998"), col=c("navy", "blue"), lty=1)
+
 ```
 
 **Part 5 (5 points)**
@@ -730,7 +662,6 @@ best10.mods <- head(best.mod[with(best.mod, order(AICc)),], n=10)
 row.names(best10.mods) <- NULL
 kable(best10.mods, caption='Top 10 Models.')
 ```
-
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 pdqPDQ.2 <- as.list(unlist(strsplit(best10.mods[1,1], '[[:space:]]')))
@@ -829,16 +760,11 @@ plot(co2.forecast.2100, main = "SARIMA Atmospheric CO2 Forecasts through 2100")
 abline(h=450, lty=2)
 ```
 
-Generate a prediction for atmospheric CO2 levels in the year 2100. How confident are you that these will be accurate predictions?
-
-## TODO: Generate predictions for when atmospheric CO2 is expected to reach 450 parts per million, considering the prediction intervals as well as the point estimate. 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
-
 co2_forecast_ts2100 <- co2.forecast.2100[4]$mean
-
 ```
 
-We forecast that atmospheric CO2 would exceed 600 ppm by December 2021 with 95% confidence that the level of CO2 will be between 529 and 673 ppm. This is nearly 43% higher than current CO2 levels. It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates and eventually declines.
+We forecast that atmospheric CO2 would exceed 600 ppm by December 2100, and that the level of CO2 will be between 529 and 673 ppm with 95% confidence. This is nearly 43% higher than current CO2 levels! It is extremely important to note, however, that these forecasts assume the current CO2 generating process will be the same over the next 80 years as it has been over the past 45 years. This seems highly unlikely as there is clear evidence that carbon emissions impact the environment and climate negatively, and there is significant momentum among most of the world's governments to make a coordinated effort to combat climate change^[https://unfccc.int/process-and-meetings/the-paris-agreement/the-paris-agreement]. Ultimately, we hope that our forecasts are only accurate in the very immediate term, and over time, the growth of CO2 concentrations decelerates, and CO2 levels eventually decline.
 
 ```{r}
 ####################################
@@ -848,17 +774,27 @@ upper_data=co2.forecast.2100$upper
 upper_data_95=upper_data[,"95%"]
 #find the first interval covering 450ppm
 first_95_int_w450=which(upper_data_95>=450)[1]
-time_pt_first_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
+time_upper_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
 
 ####################################
-#get point data
+#get point estimate data
 pt_data=co2.forecast.2100[4]$mean
 #and where it hits at least 450ppm
 pt_first_idx_w450=which(pt_data>=450)[1]
 time_pt_first_pt=as.yearmon(time(pt_data))[pt_first_idx_w450]
 
-print(paste("Based on inspecting the forecast results, the first time the upper-confidence interval (at the 95% level) includes 450 at ",time_pt_first_95,".",sep=""))
-print(paste("Furthermore, based on inspecting the forecast results, the main prediction meets 450 is at ",time_pt_first_pt,".",sep=""))
+####################################
+#get lower confidence interval data
+lower_data=co2.forecast.2100$lower
+#at the 95%  confidence level
+lower_data_95=upper_data[,"95%"]
+#find the first interval covering 450ppm
+first_95_int_w450=which(lower_data_95>=450)[1]
+time_lower_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
+
+print(paste("Based on inspecting the forecast results, the first time the upper-confidence interval (at the 95% level) reaches 450 is ",time_upper_95,".",sep=""))
+print(paste("Furthermore, based on inspecting the forecast results, the point estimate prediction reaches 450 at ",time_pt_first_pt,".",sep=""))
+print(paste("Lastly, the first time the lower-confidence interval (at the 95% level) reaches 450 is ",time_upper_95,".",sep=""))
 ```
 
 Finally, upon inspecting the forecast's confidence intervals' upper bounds, we observe that the first time that it includes 450ppm is in March 2032 ; additionally, the first time that the main prediction itself meets or exceeds 450ppm is 3 years later in March 2035.
