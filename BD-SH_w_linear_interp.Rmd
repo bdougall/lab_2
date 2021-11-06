@@ -60,7 +60,8 @@ The `co2` data set in R's `datasets` package (automatically loaded with base R) 
 #knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
 #                      echo=FALSE, warning=FALSE, message=FALSE)
 library(knitr)
-opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=FALSE)
+opts_chunk$set(tidy.opts=list(width.cutoff=60), tidy=TRUE,
+               warning=FALSE, message=FALSE)
 
 # Load required libraries
 library(car)
@@ -100,28 +101,28 @@ plot(co2, main = "Figure 1: Monthly Mean CO2 Variation",
           ylab = expression("CO2 ppm"), col = 'blue', las = 1)
 
 plot(co2.deseasoned, 
-    main = expression("Figure 2: Presence of CO2 in air  after removing season"), 
+    main = "Figure 2: Presence of CO2 after removing season", 
     xlab = "year", ylab = "CO2 ppm")
 
 plot(co2.detrended, 
-     main = expression("Figure 3: Presence of CO2 in air after removing trend"), 
+     main = "Figure 3: Presence of CO2 after removing trend", 
      xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 
 abline(h= 0)
 
 plot(co2.diff, 
-main = expression("Figure 4: Presence of CO2 in air after differencing"), 
+main = "Figure 4: Presence of CO2 after differencing", 
 xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 
 abline(h= 0)
 
 plot(co2.seasdiff, 
-main = expression("Figure 5: Presence of CO2 in air after seasonal differencing "), 
+main = "Figure 5: Presence of CO2 after seasonal differencing", 
 xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
 plot(co2.bothdiff, 
-  main = expression("Figure 6: Presence of CO2 in air non-seasonal and seasonal differencing"), 
+  main = "Figure 6: Presence of CO2 w/ non-seasonal and seasonal differencing", 
          xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
@@ -386,7 +387,7 @@ get.best.arima <- function(x.ts, maxord = c(1,1,1,1,1,1))
                                          method="ML")
           
           npar <- length(fit$coef[fit$mask]) + 1
-          nstar <- length(fit$residuals) - fit$arma[6] - fit$arma[7] * fit$arma[5]
+          nstar <- length(fit$residuals) - fit$arma[6] - fit$arma[7]*fit$arma[5]
   
           fit.aic <- fit$aic
           fit.bic <- fit.aic + npar * (log(nstar) - 2)
@@ -520,7 +521,7 @@ co2_noaa_weekly_ts <- ts(co2_merged$ppm, start=c(1974), frequency=52)
 
 # Plot weekly time series
 plot(co2_noaa_weekly_ts, 
-   main = "Weekly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974 to 2021", 
+   main = "Weekly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 ```
 
@@ -537,7 +538,7 @@ co2_noaa_monthly_ts <- ts(co2_noaa_monthly_df$ppm_month_avg, start=c(1974),
 
 # Plot monthly time series
 plot(co2_noaa_monthly_ts, 
-   main = "Monthly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974 to 2021", 
+   main = "Monthly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 ```
 
@@ -556,7 +557,8 @@ ts.plot(co2_actuals_ts, co2_forecast_ts, lty=1:2,
         ylab="CO2 (ppm)",
         main="SARIMA(0,1,1,2,1,2) Forecasts vs. Actual Monthly CO2 Levels" 
         )
-legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
+legend("topleft", legend=c("Actual", "Forecast"), 
+       col=c("navy", "blue"), lty=1:2)
 ```
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
@@ -653,8 +655,9 @@ After taking one non-seasonal difference of the weekly NOAA series, we noticed t
 # so we'll use the PACF to estimate the seasonal part of the model (1,0,0)
 # There are 2 significant autocorrelations at lags 1 and 2 in the ACF, 
 # so we'll estimate (0,1,2)
-arima.mod1 <- arima(train.ts, order = c(0,1,2), seas = list(order=c(1,0,0), 
-                                                      frequency(train.ts)), method = "ML")
+arima.mod1 <- arima(train.ts, order = c(0,1,2), 
+                    seas = list(order=c(1,0,0), 
+                    frequency(train.ts)), method = "ML")
 # Look at the estimated coefficients
 summary(arima.mod1)
 # The histogram plot looks approximately normal
@@ -803,7 +806,7 @@ time_upper_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
 pt_data=co2.forecast.2100[4]$mean
 #and where it hits at least 450ppm
 pt_first_idx_w450=which(pt_data>=450)[1]
-time_pt_first_pt=as.yearmon(time(pt_data))[pt_first_idx_w450]
+time_point_est=as.yearmon(time(pt_data))[pt_first_idx_w450]
 
 ####################################
 #get lower confidence interval data
@@ -814,10 +817,7 @@ lower_data_95=upper_data[,"95%"]
 first_95_int_w450=which(lower_data_95>=450)[1]
 time_lower_95=as.yearmon(time(co2.forecast.2100$upper))[first_95_int_w450]
 
-print(paste("Based on inspecting the forecast results, the first time the upper-confidence interval (at the 95% level) reaches 450 is ",time_upper_95,".",sep=""))
-print(paste("Furthermore, based on inspecting the forecast results, the point estimate prediction reaches 450 at ",time_pt_first_pt,".",sep=""))
-print(paste("Lastly, the first time the lower-confidence interval (at the 95% level) reaches 450 is ",time_upper_95,".",sep=""))
 ```
 
-Finally, upon inspecting the forecast's confidence intervals' upper bounds, we observe that the first time that it includes 450ppm is in March 2032 ; additionally, the first time that the main prediction itself meets or exceeds 450ppm is 3 years later in March 2035.
-
+The first time the point estimate reaches 450ppm is in `r time_point_est`.
+Upon inspecting the forecast's confidence intervals' upper bound, we observe that the first time that it reaches 450ppm is in `r time_upper_95`, while the lower bound reaches 450ppm in `r time_lower_95`.
