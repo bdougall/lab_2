@@ -85,7 +85,6 @@ library(zoo)
 Conduct a comprehensive Exploratory Data Analysis on the `co2` series. This should include (without being limited to) a thorough investigation of the trend, seasonal and irregular elements. 
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
-opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE,warning=FALSE, message=FALSE)
 
 str(co2)
 summary(co2)
@@ -194,27 +193,34 @@ plot(plot.pacf.residual,
      main = "PACF CO2 Presence in air \n random component (1959 - 1997)", 
      xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
 
-plot(plot.acf.diff, main = "ACF CO2 Presence in air \n AR diff (2nd Order)(1959 - 1997)", 
+plot(plot.acf.diff, 
+     main = "ACF CO2 Presence in air \n AR First differencing (1959 - 1997)", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
-plot(plot.pacf.diff, main = "PACF CO2 Presence in air \n AR differencing (2nd Order)(1959 - 1997)", 
+plot(plot.pacf.diff, 
+     main = "PACF CO2 Presence in air \n AR first differencing (1959 - 1997)", 
      xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
 
-plot(plot.acf.seasondiff, main = "ACF CO2 Presence in air \n seasonal diff (1959 - 1997)", 
+plot(plot.acf.seasondiff, 
+     main = "ACF CO2 Presence in air \n seasonal diff (1959 - 1997)", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
-plot(plot.pacf.seasondiff, main = "PACF CO2 Presence in air \n season difference (1959 - 1997)", 
+plot(plot.pacf.seasondiff, 
+     main = "PACF CO2 Presence in air \n season difference (1959 - 1997)", 
      xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
 
-plot(plot.acf.bothdiff, main = "ACF CO2 Presence in air \n AR and seasonal differences", 
-     xlab = "Year", ylab = "Co2 ppm", col="blue")
-plot(plot.pacf.bothdiff, main = "PACF CO2 Presence in air \n AR and seasonal differences", 
+plot(plot.acf.bothdiff, 
+     main = "ACF CO2 Presence in air \n AR and seasonal differences", 
+     xlab = "Year", ylab = "Co2 ppm", col="blue", cex.main=0.5)
+plot(plot.pacf.bothdiff, 
+     main = "PACF CO2 Presence in air \n AR and seasonal differences", 
      xlab = "Year", ylab = "Co2 ppm", col="red", cex.main=0.5)
 ```
   
   Decomposition graph confirms the findings from EDA that trend and seasonality are present in the time series.  
   The above ACF and PACF graphs show for different adjustments of time series, in the following order: 1) original series 2) de-seasoned 3) de-trended 4) random component of time series 5) One-period differenced for trend 6) One-period difference and seasonal difference time series. We noted a few observations below:  
-  * PACF graph shows autocorrelation dying off after first lag after de-seasoned. This suggests to use only 1st order autoregressive model. This also suggests taking the first seasonal difference is important. 
+  * PACF graph shows autocorrelation dying off after first lag after de-seasoned. This suggests to use only 1st order autoregressive model. This also suggests taking the first seasonal difference is important.  
   * ACF graph shows clear seasonal effect after removing trend  
-  * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. Significant correlations at a 1 year lag suggests the need for a MA term.   * In the PACF with AR and seasonal differences plot, the significant negative correlations at 1 and 2 year lags suggest we should explore using a seasonal AR term in our model. 
+  * ACF graph after performing auto regressive (AR) and seasonal differences looks closer to white noise ACF graph. Significant correlations at a 1 year lag suggests the need for a MA term.   
+  * In the PACF with AR and seasonal differences plot, the significant negative correlations at 1 and 2 year lags suggest we should explore using a seasonal AR term in our model. 
 
 
 **Part 2 (3 points)**
@@ -280,8 +286,10 @@ qqPlot(co2.ts.lm.stt$residuals,
     main = expression("Quadratic Time Trend Model with 12 Seasonal Components"))
 plt.acf = acf(co2.ts.lm.stt$residuals, plot = FALSE)
 plt.pacf = pacf(co2.ts.lm.stt$residuals, plot = FALSE)
-plot(plt.acf, main = expression("ACF - Quadratic Time Trend Model with 12 Seasonal Components"))
-plot(plt.pacf, main = expression("PACF - Quadratic Time Trend Model with 12 Seasonal Components"))
+plot(plt.acf, 
+ main = expression("ACF - Quadratic Time Trend Model with Season terms"))
+plot(plt.pacf, 
+ main = expression("PACF - Quadratic Time Trend Model with Season terms"))
 Box.test(co2.ts.lm.stt$residuals, type="Ljung-Box")
 ```
 
@@ -317,19 +325,23 @@ unitroot_ndiffs(co2)
 unitroot_nsdiffs(co2)
 
 # Plot the residuals, ACF, and PACF of the first-differenced series
-# The PACF chart has fewer repeated significant spikes at seasonal lags than the ACF does
-# so we'll use it for the seasonal part of the model in our initial estimate
-# The PACF only a seasonal spike at a lag of 12 - (1,0,0)
-# Since we used the PACF for the seasonal part, we'll estimate the non-seasonal with the ACF
-# The first 2 autocorrelations in the ACF are significant, so we'll estimate an MA(2)
+# The PACF chart has fewer repeated significant spikes at seasonal lags 
+# than the ACF does # so we'll use it for the seasonal part of the model 
+# in our initial estimate
+# The PACF only a seasonal spike at a lag of 12 - (1,0,0). 
+#Since we used the PACF for the seasonal part, we'll estimate 
+#the non-seasonal with the ACF
+# The first 2 autocorrelations in the ACF are significant, 
+# so we'll estimate an MA(2)
 tsdisplay(difference(co2), main = "Non-Seasonal 1st Difference")
 
 # Create an Arima model based upon our observations
 co2.sarima = arima(co2, order = c(0,1,2), seas = list(order=c(1,0,0), 
-                                                      frequency(co2)), method = "CSS")
+                                        frequency(co2)), method = "CSS")
 
 # Find the AIC of the Arima model, check the residuals, and perform Ljung-Box
-co2.sarima.aicc <- -2 * co2.sarima$loglik + log(length(co2) + 1)*(length(co2.sarima$coef))
+co2.sarima.aicc <- -2 * co2.sarima$loglik 
+                    + log(length(co2) + 1)*(length(co2.sarima$coef))
 co2.sarima.aicc
 
 # Look at the estimated coefficients
@@ -441,7 +453,8 @@ average component of our model.
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Inspect the residual plots and find the estimated AICc
-sarima2.aicc <- -2 *co2.sarima.2$loglik + (log(length(co2))+1) * length(co2.sarima.2$coef)
+sarima2.aicc <- -2 *co2.sarima.2$loglik 
+              + (log(length(co2))+1) * length(co2.sarima.2$coef)
 hist(residuals(co2.sarima.2))
 tsdisplay(co2.sarima.2$residuals, main = {toString(pdqPDQ)})
 sarima2.aicc
@@ -459,7 +472,8 @@ Since this model has a lower AICc than our initial base model estimate, the resi
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2.forecast <- forecast(co2.sarima.2, 284)
 co2_forecast_ts <- co2.forecast[4]$mean
-plot(co2.forecast, main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
+plot(co2.forecast, 
+     main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
 ```
 
 **Part 4 (5 points)**
@@ -565,7 +579,8 @@ values <- ((FV/PV)^(1/yrs)-1)
 return(values)
 }
 
-pre98.df <- subset(co2_noaa_monthly_df, (year < 1998 & year > 1974))['ppm_month_avg']
+pre98.df <- subset(co2_noaa_monthly_df, 
+                   (year < 1998 & year > 1974))['ppm_month_avg']
 post98.df <- subset(co2_noaa_monthly_df, (year >= 1998 ))['ppm_month_avg']
 # cut to equal size in months
 post98.df <- head(post98.df, n=nrow(pre98.df)) 
@@ -581,7 +596,8 @@ ts.plot(pre98.growth, post98.growth, lty=1,
         ylab="CO2 (ppm)",
         main="Pre-1998 vs Post-1998 Trends in CO2 Concentrations" 
         )
-legend("topleft", legend=c("Pre-1998", "Post-1998"), col=c("navy", "blue"), lty=1)
+legend("topleft", legend=c("Pre-1998", "Post-1998"), 
+                          col=c("navy", "blue"), lty=1)
 
 ```
 
@@ -592,8 +608,10 @@ Split the NOAA series into training and test sets, using the final two years of 
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # Extract the relevant time periods for training and testing
-train.df <- subset(co2_noaa_monthly_df, (year < 2019 & month >= 1) | (year == 2019 & month <= 6))
-test.df <- subset(co2_noaa_monthly_df, (year == 2019 & month > 6) | (year > 2019 & month >= 1))
+train.df <- subset(co2_noaa_monthly_df, 
+                  (year < 2019 & month >= 1) | (year == 2019 & month <= 6))
+test.df <- subset(co2_noaa_monthly_df, 
+                  (year == 2019 & month > 6) | (year > 2019 & month >= 1))
 
 # Create a time series out of the training and testing observations
 # Since it's a monthly series, use a frequency of 12
@@ -609,8 +627,8 @@ test.ts <- ts(test.df$ppm_month_avg, start = c(2019, 7),
 # The time series exhibits an upward trend and seasonality
 plot(train.ts, main="Training Series: NOAA Weekly Obsevations")
 
-# Use additive decomposition, since the magnitude of the seasonal fluctuation doesn't appear to vary
-# by time series level
+# Use additive decomposition, since the magnitude of the seasonal 
+# fluctuation doesn't appear to vary  by time series level
 plot(decompose(train.ts))
 ```
 
@@ -633,7 +651,8 @@ After taking one non-seasonal difference of the weekly NOAA series, we noticed t
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # There are fewer repeated seasonal lags in the PACF (only 1 at 12)
 # so we'll use the PACF to estimate the seasonal part of the model (1,0,0)
-# There are 2 significant autocorrelations at lags 1 and 2 in the ACF, so we'll estimate (0,1,2)
+# There are 2 significant autocorrelations at lags 1 and 2 in the ACF, 
+# so we'll estimate (0,1,2)
 arima.mod1 <- arima(train.ts, order = c(0,1,2), seas = list(order=c(1,0,0), 
                                                       frequency(train.ts)), method = "ML")
 # Look at the estimated coefficients
@@ -701,7 +720,8 @@ This is the result of the seasonal moving average component of our model.
 # Inspect the residual plots and find the estimated AICc
 Box.test(co2.sarima.3$residuals, type="Ljung-Box")
 
-sarima3.aicc <- -2 *co2.sarima.3$loglik + (log(length(co2))+1) * length(co2.sarima.3$coef)
+sarima3.aicc <- -2 *co2.sarima.3$loglik 
+                + (log(length(co2))+1) * length(co2.sarima.3$coef)
 tsdisplay(co2.sarima.3$residuals, main = {toString(pdqPDQ.2)})
 sarima3.aicc
 hist(residuals(co2.sarima.3))
@@ -714,7 +734,8 @@ The ACF and PACF plots of the best model do not show any significant autocorrela
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 co2.forecast.24mo <- forecast(co2.sarima.3, 24) # 24 month forecast
 co2_forecast_ts24mo <- co2.forecast.24mo[4]$mean
-plot(co2.forecast.24mo, main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
+plot(co2.forecast.24mo, 
+     main = "Best SARIMA Model - CO2 present in air(ppm) forecasting")
 ```
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
@@ -724,7 +745,8 @@ ts.plot(train.ts, co2.sarima.3$fit, lty=1:2,
         ylab="CO2 (ppm)",
         main="SARIMA(1,1,1,0,1,1) Forecasts vs. In-Sample Monthly CO2 Levels" 
         )
-legend("topleft", legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
+legend("topleft", 
+       legend=c("Actual", "Forecast"), col=c("navy", "blue"), lty=1:2)
 ```
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
