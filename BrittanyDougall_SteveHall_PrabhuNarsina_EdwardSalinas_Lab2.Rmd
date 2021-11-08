@@ -57,8 +57,6 @@ In 1958 Keeling began continuous monitoring of atmospheric carbon dioxide concen
 The `co2` data set in R's `datasets` package (automatically loaded with base R) is a monthly time series of atmospheric carbon dioxide concentrations measured in ppm (parts per million) at the Mauna Loa Observatory from 1959 to 1997. The curve graphed by this data is known as the 'Keeling Curve'.
 
 ```{r global_options, include=FALSE, echo=FALSE}
-#knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
-#                      echo=FALSE, warning=FALSE, message=FALSE)
 library(knitr)
 opts_chunk$set(tidy.opts=list(width.cutoff=60), tidy=TRUE,
                warning=FALSE, message=FALSE)
@@ -122,7 +120,7 @@ xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
 plot(co2.bothdiff, 
-  main = "Figure 6: Presence of CO2 w/ non-seasonal and seasonal differencing", 
+  main = "Figure 6: Presence of CO2 w/ non-seasonal & seasonal differencing", 
          xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
@@ -284,7 +282,7 @@ par(mfrow = c(3, 1))
 co2.ts.lm.stt = lm(ppm ~ time  + I(time^2) + season, data = co2.df)
 summary(co2.ts.lm.stt)
 qqPlot(co2.ts.lm.stt$residuals, 
-    main = expression("Quadratic Time Trend Model with 12 Seasonal Components"))
+    main = expression("Quadratic Time Trend Model w/ 12 Seasonal Components"))
 plt.acf = acf(co2.ts.lm.stt$residuals, plot = FALSE)
 plt.pacf = pacf(co2.ts.lm.stt$residuals, plot = FALSE)
 plot(plt.acf, 
@@ -521,7 +519,7 @@ co2_noaa_weekly_ts <- ts(co2_merged$ppm, start=c(1974), frequency=52)
 
 # Plot weekly time series
 plot(co2_noaa_weekly_ts, 
-   main = "Weekly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
+     main = "Weekly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 ```
 
@@ -538,7 +536,7 @@ co2_noaa_monthly_ts <- ts(co2_noaa_monthly_df$ppm_month_avg, start=c(1974),
 
 # Plot monthly time series
 plot(co2_noaa_monthly_ts, 
-   main = "Monthly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
+     main = "Monthly Observations of CO2 (ppm)\n Mauna Loa Observatory 1974-2021", 
      xlab = "Year", ylab = "Co2 ppm", col="blue")
 ```
 
@@ -627,7 +625,7 @@ test.ts <- ts(test.df$ppm_month_avg, start = c(2019, 7),
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # The time series exhibits an upward trend and seasonality
-plot(train.ts, main="Training Series: NOAA Weekly Obsevations")
+plot(train.ts, main="Training Series: NOAA Monthly-Averaged Obsevations")
 
 # Use additive decomposition, since the magnitude of the seasonal 
 # fluctuation doesn't appear to vary  by time series level
@@ -648,7 +646,7 @@ The number of non-seasonal and seasonal differences as indicated by the unit roo
 tsdisplay(diff(train.ts), main = "Training Series: One Non-Seasonal Difference")
 ```
 
-After taking one non-seasonal difference of the weekly NOAA series, we noticed there were fewer repeated seasonal lags in the PACF (only 1 at 12), so we'll use the PACF to estimate the seasonal part of the model (1,0,0). Furthermore, there are 2 significant autocorrelations at lags 1 and 2 in the ACF, so we'll estimate (0,1,2).
+After taking one non-seasonal difference of the monthly-averaged NOAA series, we noticed there were fewer repeated seasonal lags in the PACF (only 1 at 12), so we'll use the PACF to estimate the seasonal part of the model (1,0,0). Furthermore, there are 2 significant autocorrelations at lags 1 and 2 in the ACF, so we'll estimate (0,1,2).
 
 ```{r, message=FALSE, warning=FALSE, fig.height=5}
 # There are fewer repeated seasonal lags in the PACF (only 1 at 12)
