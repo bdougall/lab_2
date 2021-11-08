@@ -120,7 +120,7 @@ xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
 plot(co2.bothdiff, 
-  main = "Figure 6: Presence of CO2 w/ non-seasonal & seasonal differencing", 
+  main = "Figure 6: CO2 Presence w/ non-seasonal & seasonal differencing", 
          xlab = "year", ylab = expression("CO2 ppm"), col = 'red', las= 1)
 abline(h= 0)
 
